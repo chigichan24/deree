@@ -144,7 +144,8 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
 
     let client = makeStorageClient(baseDir: tempDir)
 
-    let image = try await client.save(widePNGData)
+    let result = try await client.save(widePNGData)
+    let image = result.saved
 
     let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
     let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
@@ -153,6 +154,7 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
     #expect(FileManager.default.fileExists(atPath: thumbPath.path))
     #expect(image.fullFileName == "full_\(image.id).png")
     #expect(image.thumbnailFileName == "thumb_\(image.id).png")
+    #expect(result.evictedIDs.isEmpty)
 
     // Cleanup
     try? FileManager.default.removeItem(at: tempDir)
@@ -164,10 +166,10 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
 
     let client = makeStorageClient(baseDir: tempDir)
 
-    let first = try await client.save(minimalPNGData)
+    let first = try await client.save(minimalPNGData).saved
     // Small delay to ensure different timestamps
     try await Task.sleep(for: .milliseconds(50))
-    let second = try await client.save(minimalPNGData)
+    let second = try await client.save(minimalPNGData).saved
 
     let all = try await client.loadAll()
 
@@ -184,7 +186,7 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
 
     let client = makeStorageClient(baseDir: tempDir)
 
-    let image = try await client.save(widePNGData)
+    let image = try await client.save(widePNGData).saved
 
     let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
     let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
@@ -224,7 +226,7 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
 
     let client = makeStorageClient(baseDir: tempDir)
 
-    let image = try await client.save(widePNGData)
+    let image = try await client.save(widePNGData).saved
 
     let thumbData = try await client.loadThumbnail(image.id)
     #expect(!thumbData.isEmpty)
@@ -242,7 +244,7 @@ private func makeStorageClient(baseDir: URL) -> StorageClient {
 
     let client = makeStorageClient(baseDir: tempDir)
 
-    let saved = try await client.save(widePNGData)
+    let saved = try await client.save(widePNGData).saved
 
     let all = try await client.loadAll()
     #expect(all.count == 1)

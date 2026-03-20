@@ -15,7 +15,7 @@ struct ClipboardFeature {
         case stopPolling
         case timerTicked
         case imagesLoaded(IdentifiedArrayOf<ClipboardImage>)
-        case imageSaved(ClipboardImage)
+        case imageSaved(SaveResult)
         case imageDeleted(ClipboardImage.ID)
         case copyImageToPasteboard(ClipboardImage.ID)
         case imageCopiedToPasteboard
@@ -26,8 +26,6 @@ struct ClipboardFeature {
     @Dependency(\.continuousClock) var clock
 
     private enum CancelID { case polling }
-
-    static let maxImages = 50
 
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -65,25 +63,18 @@ struct ClipboardFeature {
                 }
 
                 return .run { send in
-                    let image = try await storageClient.save(imageData)
-                    await send(.imageSaved(image))
+                    let result = try await storageClient.save(imageData)
+                    await send(.imageSaved(result))
                 }
 
             case let .imagesLoaded(images):
                 state.images = images
                 return .none
 
-            case let .imageSaved(image):
-                state.images.insert(image, at: 0)
-
-                if state.images.count > Self.maxImages {
-                    let overflow = Array(state.images.suffix(from: Self.maxImages))
-                    state.images.removeLast(state.images.count - Self.maxImages)
-                    return .merge(
-                        overflow.map { item in
-                            .run { _ in try await storageClient.delete(item.id) }
-                        }
-                    )
+            case let .imageSaved(result):
+                state.images.insert(result.saved, at: 0)
+                for id in result.evictedIDs {
+                    state.images.remove(id: id)
                 }
                 return .none
 

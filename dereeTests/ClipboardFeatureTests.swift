@@ -87,7 +87,7 @@ struct ClipboardFeatureTests {
         } withDependencies: {
             $0.clipboardClient.changeCount = { 6 }
             $0.clipboardClient.readImage = { testImageData }
-            $0.storageClient.save = { _ in savedImage }
+            $0.storageClient.save = { _ in SaveResult(saved: savedImage, evictedIDs: []) }
         }
 
         await store.send(.timerTicked) {
@@ -117,7 +117,7 @@ struct ClipboardFeatureTests {
         }
     }
 
-    @Test func imageSaved_over50_evictsOldest() async {
+    @Test func imageSaved_withEvictions_removesFromState() async {
         var existingImages = IdentifiedArrayOf<ClipboardImage>()
         for i in 0..<50 {
             existingImages.append(
@@ -142,24 +142,18 @@ struct ClipboardFeatureTests {
         )
 
         let oldestId = existingImages.last!.id
-        let deletedIds = LockIsolated<[UUID]>([])
+        let result = SaveResult(saved: newImage, evictedIDs: [oldestId])
 
         let store = TestStore(
             initialState: ClipboardFeature.State(images: existingImages)
         ) {
             ClipboardFeature()
-        } withDependencies: {
-            $0.storageClient.delete = { id in
-                deletedIds.withValue { $0.append(id) }
-            }
         }
 
-        await store.send(.imageSaved(newImage)) {
+        await store.send(.imageSaved(result)) {
             $0.images.insert(newImage, at: 0)
-            $0.images.removeLast()
+            $0.images.remove(id: oldestId)
         }
-
-        #expect(deletedIds.value == [oldestId])
     }
 
     @Test func copyImageToPasteboard_writesAndUpdatesChangeCount() async {

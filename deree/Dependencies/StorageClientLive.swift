@@ -13,8 +13,6 @@ actor StorageActor: GlobalActor {
 // MARK: - Live Implementation
 
 extension StorageClient {
-    private static let maxImageCount = 50
-
     static func makeLive(
         baseDirectory: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("deree")
@@ -70,7 +68,7 @@ private final class LiveStorage: Sendable {
     }
 
     @StorageActor
-    func save(imageData: Data) throws -> ClipboardImage {
+    func save(imageData: Data) throws -> SaveResult {
         try ensureDirectories()
 
         let id = UUID()
@@ -116,14 +114,16 @@ private final class LiveStorage: Sendable {
         images.insert(image, at: 0)
 
         // Enforce cap
+        var evictedIDs: [UUID] = []
         while images.count > Self.maxImageCount {
             let removed = images.removeLast()
             removeFiles(for: removed)
+            evictedIDs.append(removed.id)
         }
 
         try writeMetadata(images)
 
-        return image
+        return SaveResult(saved: image, evictedIDs: evictedIDs)
     }
 
     @StorageActor
