@@ -8,24 +8,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppReducer()
     }
 
-    private var floatingPanel: FloatingPanel?
-    private var statusItem: NSStatusItem?
-    private var screenObserver: (any NSObjectProtocol)?
-    private var deactivateObserver: (any NSObjectProtocol)?
+    private var statusItemController: StatusItemController?
+    private var panelController: PanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupStatusItem()
-        setupFloatingPanel()
+        statusItemController = StatusItemController(
+            onLeftClick: { [weak self] in
+                self?.store.send(.menuBarToggleTapped)
+            },
+            onQuit: { [weak self] in
+                self?.store.send(.quitButtonTapped)
+            }
+        )
+
+        panelController = PanelController(
+            contentView: ClipboardImageListView(
+                store: store.scope(state: \.clipboard, action: \.clipboard)
+            ),
+            onPanelClose: { [weak self] in
+                self?.store.send(.panel(.hidePanel))
+            },
+            onDeactivate: { [weak self] in
+                _ = self?.store.send(.panel(.hidePanel))
+            }
+        )
+
         store.send(.appDidFinishLaunching)
 
         _ = observe { [weak self] in
             guard let self else { return }
             let isVisible = store.panel.isPanelVisible
-            updateStatusIcon(active: isVisible)
+            statusItemController?.updateIcon(active: isVisible)
             if isVisible {
-                floatingPanel?.slideIn()
+                panelController?.slideIn()
             } else {
-                floatingPanel?.slideOut {}
+                panelController?.slideOut()
             }
         }
     }
@@ -34,105 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
-    // MARK: - Status Item (Menu Bar Icon)
-
-    private func setupStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = statusItem?.button {
-            button.image = NSImage(
-                systemSymbolName: "photo.on.rectangle",
-                accessibilityDescription: "deree"
-            )
-            button.action = #selector(statusItemClicked(_:))
-            button.target = self
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        }
-    }
-
-    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else { return }
-
-        if event.type == .rightMouseUp {
-            showContextMenu()
-        } else {
-            store.send(.menuBarToggleTapped)
-        }
-    }
-
-    private func showContextMenu() {
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Quit deree", action: #selector(quitApp), keyEquivalent: "q")
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-        statusItem?.menu = nil
-    }
-
-    @objc private func quitApp() {
-        store.send(.quitButtonTapped)
-    }
-
-    private func updateStatusIcon(active: Bool) {
-        statusItem?.button?.image = NSImage(
-            systemSymbolName: active ? "photo.on.rectangle.fill" : "photo.on.rectangle",
-            accessibilityDescription: "deree"
-        )
-    }
-
-    // MARK: - Floating Panel
-
-    private func setupFloatingPanel() {
-        guard let screen = NSScreen.main else { return }
-
-        let panel = FloatingPanel(contentRect: PanelConstants.frame(for: screen))
-        let panelView = ClipboardImageListView(
-            store: store.scope(state: \.clipboard, action: \.clipboard)
-        )
-        panel.contentView = NSHostingView(rootView: panelView)
-        panel.delegate = self
-        floatingPanel = panel
-
-        // queue: .main guarantees Main Thread, enabling MainActor.assumeIsolated
-        screenObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.repositionPanel()
-            }
-        }
-
-        // Hide panel when app loses focus
-        deactivateObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didResignActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                _ = self?.store.send(.panel(.hidePanel))
-            }
-        }
-    }
-
     func applicationWillTerminate(_ notification: Notification) {
-        if let observer = screenObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        if let observer = deactivateObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        screenObserver = nil
-        deactivateObserver = nil
-    }
-
-    private func repositionPanel() {
-        guard let screen = NSScreen.main, let panel = floatingPanel else { return }
-        panel.setFrame(PanelConstants.frame(for: screen), display: true)
-    }
-}
-
-extension AppDelegate: NSWindowDelegate {
-    func windowWillClose(_ notification: Notification) {
-        store.send(.panel(.hidePanel))
+        panelController?.tearDown()
     }
 }
