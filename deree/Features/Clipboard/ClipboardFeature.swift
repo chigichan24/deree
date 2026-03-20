@@ -1,6 +1,7 @@
 import AppKit
 import ComposableArchitecture
 import Foundation
+import os
 
 @Reducer
 struct ClipboardFeature {
@@ -31,6 +32,8 @@ struct ClipboardFeature {
     @Dependency(\.storageClient) var storageClient
     @Dependency(\.continuousClock) var clock
 
+    private static let logger = Logger(subsystem: "com.chigichan24.deree", category: "ClipboardFeature")
+
     private enum CancelID { case polling }
 
     var body: some ReducerOf<Self> {
@@ -44,12 +47,7 @@ struct ClipboardFeature {
                         do {
                             let images = try await storageClient.loadAll()
                             await send(.imagesLoaded(images))
-                            var thumbs: [UUID: Data] = [:]
-                            for image in images {
-                                if let data = try? await storageClient.loadThumbnail(image.id) {
-                                    thumbs[image.id] = data
-                                }
-                            }
+                            let thumbs = await loadThumbnails(for: images)
                             await send(.thumbnailsLoaded(thumbs))
                         } catch {
                             await send(.operationFailed(error.localizedDescription))
@@ -83,9 +81,7 @@ struct ClipboardFeature {
                     do {
                         let result = try await storageClient.save(imageData)
                         await send(.imageSaved(result))
-                        if let thumbData = try? await storageClient.loadThumbnail(result.saved.id) {
-                            await send(.thumbnailLoaded(result.saved.id, thumbData))
-                        }
+                        await loadThumbnail(for: result.saved.id, send: send)
                     } catch {
                         await send(.operationFailed(error.localizedDescription))
                     }
@@ -93,11 +89,12 @@ struct ClipboardFeature {
 
             case let .imagesLoaded(images):
                 state.images = images
+                state.thumbnails = [:]
                 state.lastError = nil
                 return .none
 
             case let .thumbnailsLoaded(thumbs):
-                state.thumbnails.merge(thumbs) { _, new in new }
+                state.thumbnails = thumbs
                 return .none
 
             case let .imageSaved(result):
@@ -138,6 +135,35 @@ struct ClipboardFeature {
                 state.lastError = message
                 return .none
             }
+        }
+    }
+
+    // MARK: - Thumbnail loading helpers
+
+    private func loadThumbnails(
+        for images: IdentifiedArrayOf<ClipboardImage>
+    ) async -> [UUID: Data] {
+        var thumbs: [UUID: Data] = [:]
+        for image in images {
+            do {
+                let data = try await storageClient.loadThumbnail(image.id)
+                thumbs[image.id] = data
+            } catch {
+                Self.logger.warning("Failed to load thumbnail for \(image.id): \(error)")
+            }
+        }
+        return thumbs
+    }
+
+    private func loadThumbnail(
+        for id: UUID,
+        send: Send<Action>
+    ) async {
+        do {
+            let data = try await storageClient.loadThumbnail(id)
+            await send(.thumbnailLoaded(id, data))
+        } catch {
+            Self.logger.warning("Failed to load thumbnail for \(id): \(error)")
         }
     }
 }
