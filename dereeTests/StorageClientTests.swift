@@ -130,128 +130,141 @@ private func deflateWrap(_ input: Data) -> Data {
     return out
 }
 
-// MARK: - Helper to create a StorageClient using a custom temp directory
-
-private func makeStorageClient(baseDir: URL) -> StorageClient {
-    StorageClient.makeLive(baseDirectory: baseDir)
-}
-
 // MARK: - Tests
 
-@Test func saveImageCreatesFilesOnDisk() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
+struct StorageClientTests {
+    private let tempDir: URL
+    private let client: StorageClient
 
-    let client = makeStorageClient(baseDir: tempDir)
-
-    let result = try await client.save(widePNGData)
-    let image = result.saved
-
-    let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
-    let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
-
-    #expect(FileManager.default.fileExists(atPath: fullPath.path))
-    #expect(FileManager.default.fileExists(atPath: thumbPath.path))
-    #expect(image.fullFileName == "full_\(image.id).png")
-    #expect(image.thumbnailFileName == "thumb_\(image.id).png")
-    #expect(result.evictedIDs.isEmpty)
-
-    // Cleanup
-    try? FileManager.default.removeItem(at: tempDir)
-}
-
-@Test func loadAllReturnsNewestFirst() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
-
-    let client = makeStorageClient(baseDir: tempDir)
-
-    let first = try await client.save(minimalPNGData).saved
-    // Small delay to ensure different timestamps
-    try await Task.sleep(for: .milliseconds(50))
-    let second = try await client.save(minimalPNGData).saved
-
-    let all = try await client.loadAll()
-
-    #expect(all.count == 2)
-    #expect(all[0].id == second.id)
-    #expect(all[1].id == first.id)
-
-    try? FileManager.default.removeItem(at: tempDir)
-}
-
-@Test func deleteRemovesFilesFromDisk() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
-
-    let client = makeStorageClient(baseDir: tempDir)
-
-    let image = try await client.save(widePNGData).saved
-
-    let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
-    let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
-
-    #expect(FileManager.default.fileExists(atPath: fullPath.path))
-
-    try await client.delete(image.id)
-
-    #expect(!FileManager.default.fileExists(atPath: fullPath.path))
-    #expect(!FileManager.default.fileExists(atPath: thumbPath.path))
-
-    let all = try await client.loadAll()
-    #expect(all.count == 0)
-
-    try? FileManager.default.removeItem(at: tempDir)
-}
-
-@Test func imageCapEnforcesMaximum50() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
-
-    let client = makeStorageClient(baseDir: tempDir)
-
-    for _ in 0..<51 {
-        _ = try await client.save(minimalPNGData)
+    init() {
+        tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("deree-test-\(UUID().uuidString)")
+        client = StorageClient.makeLive(baseDirectory: tempDir)
     }
 
-    let all = try await client.loadAll()
-    #expect(all.count == 50)
+    private func cleanup() {
+        try? FileManager.default.removeItem(at: tempDir)
+    }
 
-    try? FileManager.default.removeItem(at: tempDir)
-}
+    @Test func saveImageCreatesFilesOnDisk() async throws {
+        defer { cleanup() }
 
-@Test func thumbnailIsGeneratedAndLoadable() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
+        let result = try await client.save(widePNGData)
+        let image = result.saved
 
-    let client = makeStorageClient(baseDir: tempDir)
+        let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
+        let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
 
-    let image = try await client.save(widePNGData).saved
+        #expect(FileManager.default.fileExists(atPath: fullPath.path))
+        #expect(FileManager.default.fileExists(atPath: thumbPath.path))
+        #expect(image.fullFileName == "full_\(image.id).png")
+        #expect(image.thumbnailFileName == "thumb_\(image.id).png")
+        #expect(result.evictedIDs.isEmpty)
+    }
 
-    let thumbData = try await client.loadThumbnail(image.id)
-    #expect(!thumbData.isEmpty)
+    @Test func loadAllReturnsNewestFirst() async throws {
+        defer { cleanup() }
 
-    // The saved image is 300x200, so thumbnail should be max 200px wide
-    #expect(image.width == 300)
-    #expect(image.height == 200)
+        let first = try await client.save(minimalPNGData).saved
+        try await Task.sleep(for: .milliseconds(50))
+        let second = try await client.save(minimalPNGData).saved
 
-    try? FileManager.default.removeItem(at: tempDir)
-}
+        let all = try await client.loadAll()
 
-@Test func saveAndLoadAllRoundTrip() async throws {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("deree-test-\(UUID().uuidString)")
+        #expect(all.count == 2)
+        #expect(all[0].id == second.id)
+        #expect(all[1].id == first.id)
+    }
 
-    let client = makeStorageClient(baseDir: tempDir)
+    @Test func deleteRemovesFilesFromDisk() async throws {
+        defer { cleanup() }
 
-    let saved = try await client.save(widePNGData).saved
+        let image = try await client.save(widePNGData).saved
 
-    let all = try await client.loadAll()
-    #expect(all.count == 1)
-    #expect(all[0] == saved)
+        let fullPath = tempDir.appendingPathComponent("full").appendingPathComponent(image.fullFileName)
+        let thumbPath = tempDir.appendingPathComponent("thumb").appendingPathComponent(image.thumbnailFileName)
 
-    let fullData = try await client.loadFull(saved.id)
-    #expect(fullData == widePNGData)
+        #expect(FileManager.default.fileExists(atPath: fullPath.path))
 
-    try? FileManager.default.removeItem(at: tempDir)
+        try await client.delete(image.id)
+
+        #expect(!FileManager.default.fileExists(atPath: fullPath.path))
+        #expect(!FileManager.default.fileExists(atPath: thumbPath.path))
+
+        let all = try await client.loadAll()
+        #expect(all.count == 0)
+    }
+
+    @Test func imageCapEnforcesMaximum50() async throws {
+        defer { cleanup() }
+
+        for _ in 0..<51 {
+            _ = try await client.save(minimalPNGData)
+        }
+
+        let all = try await client.loadAll()
+        #expect(all.count == 50)
+    }
+
+    @Test func thumbnailIsGeneratedAndLoadable() async throws {
+        defer { cleanup() }
+
+        let image = try await client.save(widePNGData).saved
+
+        let thumbData = try await client.loadThumbnail(image.id)
+        #expect(!thumbData.isEmpty)
+
+        #expect(image.width == 300)
+        #expect(image.height == 200)
+    }
+
+    @Test func saveAndLoadAllRoundTrip() async throws {
+        defer { cleanup() }
+
+        let saved = try await client.save(widePNGData).saved
+
+        let all = try await client.loadAll()
+        #expect(all.count == 1)
+        #expect(all[0] == saved)
+
+        let fullData = try await client.loadFull(saved.id)
+        #expect(fullData == widePNGData)
+    }
+
+    // MARK: - Error cases
+
+    @Test func saveInvalidData_throwsInvalidImageData() async {
+        defer { cleanup() }
+
+        await #expect(throws: StorageError.self) {
+            _ = try await client.save(Data([0x00, 0x01, 0x02]))
+        }
+    }
+
+    @Test func loadFull_nonexistentId_throwsImageNotFound() async {
+        defer { cleanup() }
+
+        let unknownId = UUID()
+        await #expect(throws: StorageError.self) {
+            _ = try await client.loadFull(unknownId)
+        }
+    }
+
+    @Test func loadThumbnail_nonexistentId_throwsImageNotFound() async {
+        defer { cleanup() }
+
+        let unknownId = UUID()
+        await #expect(throws: StorageError.self) {
+            _ = try await client.loadThumbnail(unknownId)
+        }
+    }
+
+    @Test func delete_nonexistentId_throwsImageNotFound() async {
+        defer { cleanup() }
+
+        let unknownId = UUID()
+        await #expect(throws: StorageError.self) {
+            try await client.delete(unknownId)
+        }
+    }
 }
