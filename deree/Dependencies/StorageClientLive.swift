@@ -222,36 +222,13 @@ private final class LiveStorage: Sendable {
     }
 
     private func generateThumbnail(from source: CGImageSource, maxWidth: CGFloat) throws -> Data {
-        guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw StorageError.invalidImageData
-        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxWidth),
+        ]
 
-        let originalWidth = CGFloat(cgImage.width)
-        let originalHeight = CGFloat(cgImage.height)
-        guard originalWidth > 0, originalHeight > 0 else {
-            throw StorageError.invalidImageData
-        }
-
-        let scale = originalWidth > maxWidth ? maxWidth / originalWidth : 1.0
-        let newWidth = Int(round(originalWidth * scale))
-        let newHeight = Int(round(originalHeight * scale))
-
-        guard let context = CGContext(
-            data: nil,
-            width: newWidth,
-            height: newHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            throw StorageError.thumbnailGenerationFailed
-        }
-
-        context.interpolationQuality = .high
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
-
-        guard let thumbnail = context.makeImage() else {
+        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             throw StorageError.thumbnailGenerationFailed
         }
 

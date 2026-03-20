@@ -22,21 +22,36 @@ extension ClipboardClient: DependencyKey {
         },
         readImage: {
             MainActor.assumeIsolated {
-                guard let objects = NSPasteboard.general.readObjects(
+                let pasteboard = NSPasteboard.general
+
+                // Try reading image data directly (screenshots, copy from apps)
+                if let objects = pasteboard.readObjects(
                     forClasses: [NSImage.self],
                     options: nil
                 ),
                     let image = objects.first as? NSImage,
                     let tiffData = image.tiffRepresentation,
                     let bitmap = NSBitmapImageRep(data: tiffData),
-                    let pngData = bitmap.representation(
-                        using: .png,
-                        properties: [:]
-                    )
-                else {
-                    return nil
+                    let pngData = bitmap.representation(using: .png, properties: [:])
+                {
+                    return pngData
                 }
-                return pngData
+
+                // Try reading file URLs pointing to image files (Cmd+C in Finder)
+                if let urls = pasteboard.readObjects(
+                    forClasses: [NSURL.self],
+                    options: [.urlReadingContentsConformToTypes: NSImage.imageTypes]
+                ) as? [URL],
+                    let url = urls.first,
+                    let image = NSImage(contentsOf: url),
+                    let tiffData = image.tiffRepresentation,
+                    let bitmap = NSBitmapImageRep(data: tiffData),
+                    let pngData = bitmap.representation(using: .png, properties: [:])
+                {
+                    return pngData
+                }
+
+                return nil
             }
         },
         writeImage: { data in
