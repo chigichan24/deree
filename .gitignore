@@ -16,6 +16,9 @@ xcuserdata/
 *.swp
 *~
 
+# Build output
+build/
+
 # Misc
 *.moved-aside
 *.hmap
