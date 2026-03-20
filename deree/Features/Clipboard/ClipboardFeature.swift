@@ -52,7 +52,7 @@ struct ClipboardFeature {
                         } catch let error as StorageError {
                             await send(.operationFailed(.storageFailed(error)))
                         } catch {
-                            await send(.operationFailed(.storageFailed(.invalidImageData)))
+                            await send(.operationFailed(.unexpectedError(error.localizedDescription)))
                         }
                     },
                     .run { send in
@@ -115,6 +115,9 @@ struct ClipboardFeature {
             case let .imageDeleted(id):
                 state.images.remove(id: id)
                 state.thumbnails.removeValue(forKey: id)
+                // Optimistic deletion: state is updated immediately, storage
+                // deletion is best-effort. Orphan files from failed deletions
+                // are acceptable for this app's scale (max 50 images).
                 return .run { [id] _ in
                     do {
                         try await storageClient.delete(id)
@@ -135,7 +138,7 @@ struct ClipboardFeature {
                     } catch let error as ClipboardError {
                         await send(.operationFailed(.clipboardFailed(error)))
                     } catch {
-                        await send(.operationFailed(.clipboardFailed(.invalidImageData)))
+                        await send(.operationFailed(.unexpectedError(error.localizedDescription)))
                     }
                 }
 

@@ -12,6 +12,13 @@ actor StorageActor: GlobalActor {
     static let shared = StorageActor()
 }
 
+// MARK: - Storage Constants
+
+enum StorageConstants {
+    static let maxImageCount = 50
+    static let thumbnailMaxWidth: CGFloat = 200
+}
+
 // MARK: - Live Implementation
 
 extension StorageClient {
@@ -42,8 +49,6 @@ extension StorageClient: DependencyKey {
 @StorageActor
 private final class LiveStorage: Sendable {
     private static let logger = Logger(subsystem: "com.chigichan24.deree", category: "LiveStorage")
-    private static let maxImageCount = 50
-    private static let thumbnailMaxWidth: CGFloat = 200
 
     let baseDirectory: URL
     private var fullDirectory: URL { baseDirectory.appendingPathComponent("full") }
@@ -90,37 +95,20 @@ private final class LiveStorage: Sendable {
     func save(imageData: Data) throws -> SaveResult {
         try ensureDirectories()
 
+        let source = try createImageSource(from: imageData)
         let id = UUID()
-        let now = Date()
-        let (width, height) = try parseImageDimensions(from: imageData)
+        let (width, height) = try imageDimensions(from: source)
 
-        let fullURL = fullFileURL(for: id)
-        let thumbURL = thumbFileURL(for: id)
-
-        try imageData.write(to: fullURL)
-
-        let thumbnailData: Data
+        try writeFullImage(imageData, for: id)
         do {
-            thumbnailData = try generateThumbnail(from: imageData, maxWidth: Self.thumbnailMaxWidth)
-            try thumbnailData.write(to: thumbURL)
+            try writeThumbnail(from: source, for: id)
         } catch {
-            try? FileManager.default.removeItem(at: fullURL)
+            cleanupFiles(for: id)
             throw error
         }
 
-        let image = ClipboardImage(id: id, createdAt: now, width: width, height: height)
-
-        var images = try readMetadata()
-        images.insert(image, at: 0)
-        let evictedIDs = evictExcessImages(from: &images)
-
-        do {
-            try writeMetadata(images)
-        } catch {
-            try? FileManager.default.removeItem(at: fullURL)
-            try? FileManager.default.removeItem(at: thumbURL)
-            throw error
-        }
+        let image = ClipboardImage(id: id, createdAt: Date(), width: width, height: height)
+        let evictedIDs = try updateMetadataInserting(image, cleanupID: id)
 
         return SaveResult(saved: image, evictedIDs: evictedIDs)
     }
@@ -139,6 +127,37 @@ private final class LiveStorage: Sendable {
         }
     }
 
+    // MARK: - Save sub-steps
+
+    private func writeFullImage(_ imageData: Data, for id: UUID) throws {
+        try imageData.write(to: fullFileURL(for: id))
+    }
+
+    private func writeThumbnail(from source: CGImageSource, for id: UUID) throws {
+        let thumbnailData = try generateThumbnail(from: source, maxWidth: StorageConstants.thumbnailMaxWidth)
+        try thumbnailData.write(to: thumbFileURL(for: id))
+    }
+
+    private func updateMetadataInserting(_ image: ClipboardImage, cleanupID: UUID) throws -> Set<UUID> {
+        var images = try readMetadata()
+        images.insert(image, at: 0)
+        let evictedIDs = evictExcessImages(from: &images)
+
+        do {
+            try writeMetadata(images)
+        } catch {
+            cleanupFiles(for: cleanupID)
+            throw error
+        }
+
+        return evictedIDs
+    }
+
+    private func cleanupFiles(for id: UUID) {
+        try? FileManager.default.removeItem(at: fullFileURL(for: id))
+        try? FileManager.default.removeItem(at: thumbFileURL(for: id))
+    }
+
     // MARK: - Private helpers
 
     private func ensureDirectories() throws {
@@ -148,7 +167,7 @@ private final class LiveStorage: Sendable {
 
     private func evictExcessImages(from images: inout [ClipboardImage]) -> Set<UUID> {
         var evictedIDs = Set<UUID>()
-        while images.count > Self.maxImageCount {
+        while images.count > StorageConstants.maxImageCount {
             let removed = images.removeLast()
             do {
                 try removeFilesStrict(for: removed.id)
@@ -160,9 +179,15 @@ private final class LiveStorage: Sendable {
         return evictedIDs
     }
 
-    private func parseImageDimensions(from imageData: Data) throws -> (width: Int, height: Int) {
-        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+    private func createImageSource(from imageData: Data) throws -> CGImageSource {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil) else {
+            throw StorageError.invalidImageData
+        }
+        return source
+    }
+
+    private func imageDimensions(from source: CGImageSource) throws -> (width: Int, height: Int) {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int
         else {
@@ -196,10 +221,8 @@ private final class LiveStorage: Sendable {
         }
     }
 
-    private func generateThumbnail(from imageData: Data, maxWidth: CGFloat) throws -> Data {
-        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
+    private func generateThumbnail(from source: CGImageSource, maxWidth: CGFloat) throws -> Data {
+        guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             throw StorageError.invalidImageData
         }
 

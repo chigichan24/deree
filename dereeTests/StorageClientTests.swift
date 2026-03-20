@@ -198,12 +198,17 @@ struct StorageClientTests {
     @Test func imageCapEnforcesMaximum50() async throws {
         defer { cleanup() }
 
-        for _ in 0..<51 {
-            _ = try await client.save(minimalPNGData)
+        var firstSavedId: UUID?
+        for i in 0..<StorageConstants.maxImageCount + 1 {
+            let result = try await client.save(minimalPNGData)
+            if i == 0 { firstSavedId = result.saved.id }
+            if i == StorageConstants.maxImageCount {
+                #expect(result.evictedIDs.contains(firstSavedId!))
+            }
         }
 
         let all = try await client.loadAll()
-        #expect(all.count == 50)
+        #expect(all.count == StorageConstants.maxImageCount)
     }
 
     @Test func thumbnailIsGeneratedAndLoadable() async throws {

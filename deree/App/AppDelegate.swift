@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.delegate = self
         floatingPanel = panel
 
+        // queue: .main guarantees Main Thread, enabling MainActor.assumeIsolated
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -45,6 +46,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 self?.repositionPanel()
             }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let observer = screenObserver {
+            NotificationCenter.default.removeObserver(observer)
+            screenObserver = nil
         }
     }
 
