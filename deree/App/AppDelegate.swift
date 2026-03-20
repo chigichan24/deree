@@ -9,60 +9,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var floatingPanel: FloatingPanel?
-    private var statusItem: NSStatusItem?
     private var screenObserver: (any NSObjectProtocol)?
     private var deactivateObserver: (any NSObjectProtocol)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupStatusItem()
         setupFloatingPanel()
         store.send(.appDidFinishLaunching)
 
         _ = observe { [weak self] in
             guard let self else { return }
             let isVisible = store.panel.isPanelVisible
-            updateStatusIcon(active: isVisible)
             if isVisible {
                 floatingPanel?.slideIn()
             } else {
                 floatingPanel?.slideOut {}
             }
-        }
-    }
-
-    // MARK: - Status Item (Menu Bar Icon)
-
-    private func setupStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = statusItem?.button {
-            button.image = NSImage(
-                systemSymbolName: "photo.on.rectangle",
-                accessibilityDescription: "deree"
-            )
-            button.action = #selector(statusItemClicked)
-            button.target = self
-        }
-
-        // Right-click menu for Quit
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Quit deree", action: #selector(quitApp), keyEquivalent: "q")
-        statusItem?.menu = nil // Left-click triggers action, not menu
-    }
-
-    @objc private func statusItemClicked() {
-        store.send(.menuBarToggleTapped)
-    }
-
-    @objc private func quitApp() {
-        store.send(.quitButtonTapped)
-    }
-
-    private func updateStatusIcon(active: Bool) {
-        if let button = statusItem?.button {
-            button.image = NSImage(
-                systemSymbolName: active ? "photo.on.rectangle.fill" : "photo.on.rectangle",
-                accessibilityDescription: "deree"
-            )
         }
     }
 
@@ -79,7 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.delegate = self
         floatingPanel = panel
 
-        // Reposition on screen change
         // queue: .main guarantees Main Thread, enabling MainActor.assumeIsolated
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
