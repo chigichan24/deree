@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="deree icon">
+</p>
+
 # deree
 
 macOS menu bar app that keeps a visual history of images you copy to the clipboard.
