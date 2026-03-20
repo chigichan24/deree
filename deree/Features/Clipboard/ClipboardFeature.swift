@@ -4,8 +4,8 @@ import Foundation
 import os
 
 enum FeatureError: Equatable, Sendable {
-    case storageFailed(String)
-    case clipboardFailed(String)
+    case storageFailed(StorageError)
+    case clipboardFailed(ClipboardError)
 }
 
 @Reducer
@@ -55,7 +55,7 @@ struct ClipboardFeature {
                             let thumbs = await loadThumbnails(for: images)
                             await send(.thumbnailsLoaded(thumbs))
                         } catch {
-                            await send(.operationFailed(.storageFailed(error.localizedDescription)))
+                            await send(.operationFailed(.storageFailed(error as? StorageError ?? .invalidImageData)))
                         }
                     },
                     .run { send in
@@ -88,7 +88,7 @@ struct ClipboardFeature {
                         await send(.imageSaved(result))
                         await loadThumbnail(for: result.saved.id, send: send)
                     } catch {
-                        await send(.operationFailed(.storageFailed(error.localizedDescription)))
+                        await send(.operationFailed(.storageFailed(error as? StorageError ?? .invalidImageData)))
                     }
                 }
 
@@ -127,8 +127,12 @@ struct ClipboardFeature {
                         let fullData = try await storageClient.loadFull(id)
                         try await MainActor.run { try clipboardClient.writeImage(fullData) }
                         await send(.imageCopiedToPasteboard)
+                    } catch let error as StorageError {
+                        await send(.operationFailed(.storageFailed(error)))
+                    } catch let error as ClipboardError {
+                        await send(.operationFailed(.clipboardFailed(error)))
                     } catch {
-                        await send(.operationFailed(.clipboardFailed(error.localizedDescription)))
+                        await send(.operationFailed(.clipboardFailed(.invalidImageData)))
                     }
                 }
 

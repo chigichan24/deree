@@ -229,9 +229,7 @@ struct ClipboardFeatureTests {
         }
 
         await store.receive(\.operationFailed) {
-            $0.lastError = .storageFailed(
-                StorageError.invalidImageData.localizedDescription
-            )
+            $0.lastError = .storageFailed(.invalidImageData)
         }
     }
 
@@ -253,9 +251,7 @@ struct ClipboardFeatureTests {
         await store.send(.copyImageToPasteboard(image.id))
 
         await store.receive(\.operationFailed) {
-            $0.lastError = .clipboardFailed(
-                StorageError.imageNotFound(UUID(0)).localizedDescription
-            )
+            $0.lastError = .storageFailed(.imageNotFound(UUID(0)))
         }
     }
 }
