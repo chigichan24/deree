@@ -55,15 +55,19 @@ private final class LiveStorage: Sendable {
 
     @StorageActor
     func loadFull(id: UUID) throws -> Data {
-        let image = try findImage(id: id)
-        let url = fullDirectory.appendingPathComponent(image.fullFileName)
+        let url = fullDirectory.appendingPathComponent("full_\(id).png")
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw StorageError.imageNotFound(id)
+        }
         return try Data(contentsOf: url)
     }
 
     @StorageActor
     func loadThumbnail(id: UUID) throws -> Data {
-        let image = try findImage(id: id)
-        let url = thumbDirectory.appendingPathComponent(image.thumbnailFileName)
+        let url = thumbDirectory.appendingPathComponent("thumb_\(id).png")
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw StorageError.imageNotFound(id)
+        }
         return try Data(contentsOf: url)
     }
 
