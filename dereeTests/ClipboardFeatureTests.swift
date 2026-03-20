@@ -206,6 +206,56 @@ struct ClipboardFeatureTests {
 
         await store.send(.imagesLoaded(images)) {
             $0.images = images
+            $0.thumbnails = [:]
+        }
+    }
+
+    @Test func timerTick_saveFails_setsLastError() async {
+        let store = TestStore(
+            initialState: ClipboardFeature.State(
+                isPolling: true,
+                lastChangeCount: 5
+            )
+        ) {
+            ClipboardFeature()
+        } withDependencies: {
+            $0.clipboardClient.changeCount = { 6 }
+            $0.clipboardClient.readImage = { Data([0x89]) }
+            $0.storageClient.save = { _ in throw StorageError.invalidImageData }
+        }
+
+        await store.send(.timerTicked) {
+            $0.lastChangeCount = 6
+        }
+
+        await store.receive(\.operationFailed) {
+            $0.lastError = .storageFailed(
+                StorageError.invalidImageData.localizedDescription
+            )
+        }
+    }
+
+    @Test func copyImage_loadFullFails_setsLastError() async {
+        let image = ClipboardImage(
+            id: UUID(0),
+            createdAt: Date(),
+            width: 100,
+            height: 100
+        )
+        let store = TestStore(
+            initialState: ClipboardFeature.State(images: [image])
+        ) {
+            ClipboardFeature()
+        } withDependencies: {
+            $0.storageClient.loadFull = { id in throw StorageError.imageNotFound(id) }
+        }
+
+        await store.send(.copyImageToPasteboard(image.id))
+
+        await store.receive(\.operationFailed) {
+            $0.lastError = .clipboardFailed(
+                StorageError.imageNotFound(UUID(0)).localizedDescription
+            )
         }
     }
 }

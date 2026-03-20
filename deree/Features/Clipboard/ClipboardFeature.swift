@@ -3,6 +3,11 @@ import ComposableArchitecture
 import Foundation
 import os
 
+enum FeatureError: Equatable, Sendable {
+    case storageFailed(String)
+    case clipboardFailed(String)
+}
+
 @Reducer
 struct ClipboardFeature {
     @ObservableState
@@ -11,7 +16,7 @@ struct ClipboardFeature {
         var thumbnails: [UUID: Data] = [:]
         var isPolling: Bool = false
         var lastChangeCount: Int = 0
-        var lastError: String?
+        var lastError: FeatureError?
     }
 
     enum Action: Equatable {
@@ -25,7 +30,7 @@ struct ClipboardFeature {
         case imageDeleted(ClipboardImage.ID)
         case copyImageToPasteboard(ClipboardImage.ID)
         case imageCopiedToPasteboard
-        case operationFailed(String)
+        case operationFailed(FeatureError)
     }
 
     @Dependency(\.clipboardClient) var clipboardClient
@@ -50,7 +55,7 @@ struct ClipboardFeature {
                             let thumbs = await loadThumbnails(for: images)
                             await send(.thumbnailsLoaded(thumbs))
                         } catch {
-                            await send(.operationFailed(error.localizedDescription))
+                            await send(.operationFailed(.storageFailed(error.localizedDescription)))
                         }
                     },
                     .run { send in
@@ -83,7 +88,7 @@ struct ClipboardFeature {
                         await send(.imageSaved(result))
                         await loadThumbnail(for: result.saved.id, send: send)
                     } catch {
-                        await send(.operationFailed(error.localizedDescription))
+                        await send(.operationFailed(.storageFailed(error.localizedDescription)))
                     }
                 }
 
@@ -123,7 +128,7 @@ struct ClipboardFeature {
                         try await MainActor.run { try clipboardClient.writeImage(fullData) }
                         await send(.imageCopiedToPasteboard)
                     } catch {
-                        await send(.operationFailed(error.localizedDescription))
+                        await send(.operationFailed(.clipboardFailed(error.localizedDescription)))
                     }
                 }
 
@@ -131,8 +136,8 @@ struct ClipboardFeature {
                 state.lastChangeCount = clipboardClient.changeCount()
                 return .none
 
-            case let .operationFailed(message):
-                state.lastError = message
+            case let .operationFailed(error):
+                state.lastError = error
                 return .none
             }
         }
