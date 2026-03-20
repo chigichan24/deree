@@ -112,12 +112,7 @@ private final class LiveStorage: Sendable {
             height: height
         )
 
-        var images: [ClipboardImage]
-        if FileManager.default.fileExists(atPath: metadataURL.path) {
-            images = try readMetadata()
-        } else {
-            images = []
-        }
+        var images = try readMetadata()
         images.insert(image, at: 0)
 
         var evictedIDs: [UUID] = []
