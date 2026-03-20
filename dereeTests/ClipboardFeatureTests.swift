@@ -293,4 +293,34 @@ struct ClipboardFeatureTests {
             $0.lastError = nil
         }
     }
+
+    @Test func imageDeleted_removesFromStateAndCallsStorageDelete() async {
+        let image = ClipboardImage(
+            id: UUID(0),
+            createdAt: Date(),
+            width: 100,
+            height: 100
+        )
+        let deletedIds = LockIsolated<[UUID]>([])
+
+        let store = TestStore(
+            initialState: ClipboardFeature.State(
+                images: [image],
+                thumbnails: [image.id: Data()]
+            )
+        ) {
+            ClipboardFeature()
+        } withDependencies: {
+            $0.storageClient.delete = { id in
+                deletedIds.withValue { $0.append(id) }
+            }
+        }
+
+        await store.send(.imageDeleted(image.id)) {
+            $0.images = []
+            $0.thumbnails = [:]
+        }
+
+        #expect(deletedIds.value == [UUID(0)])
+    }
 }

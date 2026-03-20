@@ -155,16 +155,24 @@ struct ClipboardFeature {
     private func loadThumbnails(
         for images: IdentifiedArrayOf<ClipboardImage>
     ) async -> [UUID: Data] {
-        var thumbs: [UUID: Data] = [:]
-        for image in images {
-            do {
-                let data = try await storageClient.loadThumbnail(image.id)
-                thumbs[image.id] = data
-            } catch {
-                Self.logger.warning("Failed to load thumbnail for \(image.id): \(error)")
+        await withTaskGroup(of: (UUID, Data?).self) { group in
+            for image in images {
+                group.addTask { [storageClient] in
+                    do {
+                        let data = try await storageClient.loadThumbnail(image.id)
+                        return (image.id, data)
+                    } catch {
+                        Self.logger.warning("Failed to load thumbnail for \(image.id): \(error)")
+                        return (image.id, nil)
+                    }
+                }
             }
+            var thumbs: [UUID: Data] = [:]
+            for await (id, data) in group {
+                if let data { thumbs[id] = data }
+            }
+            return thumbs
         }
-        return thumbs
     }
 
     private func loadThumbnail(
