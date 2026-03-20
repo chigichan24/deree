@@ -71,7 +71,7 @@ private final class LiveStorage: Sendable {
 
     @StorageActor
     func save(imageData: Data) throws -> ClipboardImage {
-        ensureDirectories()
+        try ensureDirectories()
 
         let id = UUID()
         let now = Date()
@@ -137,9 +137,9 @@ private final class LiveStorage: Sendable {
 
     private static let maxImageCount = 50
 
-    private func ensureDirectories() {
-        try? FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: thumbDirectory, withIntermediateDirectories: true)
+    private func ensureDirectories() throws {
+        try FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: thumbDirectory, withIntermediateDirectories: true)
     }
 
     private func readMetadata() throws -> [ClipboardImage] {
