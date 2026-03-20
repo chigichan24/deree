@@ -2,6 +2,7 @@ import AppKit
 import Dependencies
 import Foundation
 import IdentifiedCollections
+import os
 
 // MARK: - StorageActor
 
@@ -38,6 +39,8 @@ extension StorageClient: DependencyKey {
 // MARK: - LiveStorage
 
 private final class LiveStorage: Sendable {
+    private static let logger = Logger(subsystem: "com.chigichan24.deree", category: "LiveStorage")
+
     let baseDirectory: URL
     private var fullDirectory: URL { baseDirectory.appendingPathComponent("full") }
     private var thumbDirectory: URL { baseDirectory.appendingPathComponent("thumb") }
@@ -118,7 +121,11 @@ private final class LiveStorage: Sendable {
         var evictedIDs: [UUID] = []
         while images.count > Self.maxImageCount {
             let removed = images.removeLast()
-            removeFiles(for: removed.id)
+            do {
+                try removeFilesStrict(for: removed.id)
+            } catch {
+                Self.logger.warning("Failed to remove evicted files for \(removed.id): \(error)")
+            }
             evictedIDs.append(removed.id)
         }
 
@@ -140,8 +147,12 @@ private final class LiveStorage: Sendable {
             throw StorageError.imageNotFound(id)
         }
         images.remove(at: index)
-        try removeFilesStrict(for: id)
         try writeMetadata(images)
+        do {
+            try removeFilesStrict(for: id)
+        } catch {
+            Self.logger.warning("Failed to remove files for deleted image \(id): \(error)")
+        }
     }
 
     // MARK: - Private helpers
