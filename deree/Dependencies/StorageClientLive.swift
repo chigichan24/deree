@@ -167,14 +167,6 @@ private final class LiveStorage: Sendable {
         try data.write(to: metadataURL)
     }
 
-    private func findImage(id: UUID) throws -> ClipboardImage {
-        let images = try readMetadata()
-        guard let image = images.first(where: { $0.id == id }) else {
-            throw StorageError.imageNotFound(id)
-        }
-        return image
-    }
-
     private func removeFiles(for image: ClipboardImage) {
         let fullURL = fullDirectory.appendingPathComponent(image.fullFileName)
         let thumbURL = thumbDirectory.appendingPathComponent(image.thumbnailFileName)
