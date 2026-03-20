@@ -4,7 +4,9 @@
 
 # deree
 
-macOS menu bar app that keeps a visual history of images you copy to the clipboard.
+**D**oes **E**very **R**obot-**E**xcluded **E**dit
+
+A clipboard image history for the work AI leaves behind. Your AI agent can write the code and take the screenshots, but someone still has to paste them into the PR. That someone is you. deree keeps your clipboard images ready so the last mile hurts a little less.
 
 ## Features
 
