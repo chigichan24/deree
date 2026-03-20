@@ -24,6 +24,8 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         SWIFT_VERSION: "6"
         SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: true
+        GCC_TREAT_WARNINGS_AS_ERRORS: true
         PRODUCT_BUNDLE_IDENTIFIER: com.chigichan24.deree
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: 1
@@ -36,6 +38,8 @@ targets:
       base:
         SWIFT_VERSION: "6"
         SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: true
+        GCC_TREAT_WARNINGS_AS_ERRORS: true
         GENERATE_INFOPLIST_FILE: true
     dependencies:
       - target: deree

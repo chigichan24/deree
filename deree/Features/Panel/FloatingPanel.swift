@@ -1,5 +1,6 @@
 import AppKit
 
+@MainActor
 final class FloatingPanel: NSPanel {
     init(contentRect: NSRect) {
         super.init(
@@ -34,7 +35,6 @@ final class FloatingPanel: NSPanel {
         guard let screen = NSScreen.main else { return }
         let targetFrame = PanelConstants.frame(for: screen)
 
-        // Start off-screen to the right
         var startFrame = targetFrame
         startFrame.origin.x = screen.visibleFrame.maxX
         setFrame(startFrame, display: false)
@@ -47,7 +47,7 @@ final class FloatingPanel: NSPanel {
         }
     }
 
-    func slideOut(completion: @escaping () -> Void) {
+    func slideOut(completion: @MainActor @Sendable @escaping () -> Void) {
         guard let screen = NSScreen.main else {
             orderOut(nil)
             completion()
@@ -61,9 +61,11 @@ final class FloatingPanel: NSPanel {
             context.duration = 0.15
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             self.animator().setFrame(offscreenFrame, display: true)
-        }, completionHandler: {
-            self.orderOut(nil)
-            completion()
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                self?.orderOut(nil)
+                completion()
+            }
         })
     }
 
