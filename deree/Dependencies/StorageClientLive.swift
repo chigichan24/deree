@@ -1,7 +1,8 @@
-import AppKit
+import CoreGraphics
 import Dependencies
 import Foundation
 import IdentifiedCollections
+import ImageIO
 import os
 
 // MARK: - StorageActor
@@ -38,6 +39,7 @@ extension StorageClient: DependencyKey {
 
 // MARK: - LiveStorage
 
+@StorageActor
 private final class LiveStorage: Sendable {
     private static let logger = Logger(subsystem: "com.chigichan24.deree", category: "LiveStorage")
 
@@ -46,7 +48,7 @@ private final class LiveStorage: Sendable {
     private var thumbDirectory: URL { baseDirectory.appendingPathComponent("thumb") }
     private var metadataURL: URL { baseDirectory.appendingPathComponent("metadata.json") }
 
-    init(baseDirectory: URL) {
+    nonisolated init(baseDirectory: URL) {
         self.baseDirectory = baseDirectory
     }
 
@@ -62,13 +64,11 @@ private final class LiveStorage: Sendable {
 
     // MARK: - Public API
 
-    @StorageActor
     func loadAll() throws -> IdentifiedArrayOf<ClipboardImage> {
         let images = try readMetadata()
         return IdentifiedArrayOf(uniqueElements: images)
     }
 
-    @StorageActor
     func loadFull(id: UUID) throws -> Data {
         let url = fullFileURL(for: id)
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -77,7 +77,6 @@ private final class LiveStorage: Sendable {
         return try Data(contentsOf: url)
     }
 
-    @StorageActor
     func loadThumbnail(id: UUID) throws -> Data {
         let url = thumbFileURL(for: id)
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -86,7 +85,6 @@ private final class LiveStorage: Sendable {
         return try Data(contentsOf: url)
     }
 
-    @StorageActor
     func save(imageData: Data) throws -> SaveResult {
         try ensureDirectories()
 
@@ -101,7 +99,7 @@ private final class LiveStorage: Sendable {
 
         let thumbnailData: Data
         do {
-            thumbnailData = try generateThumbnail(from: imageData, maxWidth: 200)
+            thumbnailData = try generateThumbnail(from: imageData, maxWidth: Self.thumbnailMaxWidth)
             try thumbnailData.write(to: thumbURL)
         } catch {
             try? FileManager.default.removeItem(at: fullURL)
@@ -140,7 +138,6 @@ private final class LiveStorage: Sendable {
         return SaveResult(saved: image, evictedIDs: evictedIDs)
     }
 
-    @StorageActor
     func delete(id: UUID) throws {
         var images = try readMetadata()
         guard let index = images.firstIndex(where: { $0.id == id }) else {
@@ -158,6 +155,7 @@ private final class LiveStorage: Sendable {
     // MARK: - Private helpers
 
     private static let maxImageCount = 50
+    private static let thumbnailMaxWidth: CGFloat = 200
 
     private func ensureDirectories() throws {
         try FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
@@ -208,46 +206,54 @@ private final class LiveStorage: Sendable {
     }
 
     private func generateThumbnail(from imageData: Data, maxWidth: CGFloat) throws -> Data {
-        guard let image = NSImage(data: imageData) else {
-            throw StorageError.invalidImageData
-        }
-
-        let originalSize = image.size
-        guard originalSize.width > 0, originalSize.height > 0 else {
-            throw StorageError.invalidImageData
-        }
-
-        let scale: CGFloat
-        if originalSize.width > maxWidth {
-            scale = maxWidth / originalSize.width
-        } else {
-            scale = 1.0
-        }
-
-        let newSize = NSSize(
-            width: round(originalSize.width * scale),
-            height: round(originalSize.height * scale)
-        )
-
-        let newImage = NSImage(size: newSize)
-        newImage.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(
-            in: NSRect(origin: .zero, size: newSize),
-            from: NSRect(origin: .zero, size: originalSize),
-            operation: .copy,
-            fraction: 1.0
-        )
-        newImage.unlockFocus()
-
-        guard let tiffData = newImage.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmapRep.representation(using: .png, properties: [:])
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else {
+            throw StorageError.invalidImageData
+        }
+
+        let originalWidth = CGFloat(cgImage.width)
+        let originalHeight = CGFloat(cgImage.height)
+        guard originalWidth > 0, originalHeight > 0 else {
+            throw StorageError.invalidImageData
+        }
+
+        let scale = originalWidth > maxWidth ? maxWidth / originalWidth : 1.0
+        let newWidth = Int(round(originalWidth * scale))
+        let newHeight = Int(round(originalHeight * scale))
+
+        guard let context = CGContext(
+            data: nil,
+            width: newWidth,
+            height: newHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
             throw StorageError.thumbnailGenerationFailed
         }
 
-        return pngData
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+
+        guard let thumbnail = context.makeImage() else {
+            throw StorageError.thumbnailGenerationFailed
+        }
+
+        let mutableData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            mutableData as CFMutableData, "public.png" as CFString, 1, nil
+        ) else {
+            throw StorageError.thumbnailGenerationFailed
+        }
+
+        CGImageDestinationAddImage(destination, thumbnail, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw StorageError.thumbnailGenerationFailed
+        }
+
+        return mutableData as Data
     }
 }
 
