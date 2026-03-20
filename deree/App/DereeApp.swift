@@ -5,7 +5,7 @@ struct DereeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("deree", systemImage: "photo.on.rectangle") {
+        MenuBarExtra {
             Button(appDelegate.store.panel.isPanelVisible ? "Hide Panel" : "Show Panel") {
                 appDelegate.store.send(.menuBarToggleTapped)
             }
@@ -17,6 +17,8 @@ struct DereeApp: App {
                 appDelegate.store.send(.quitButtonTapped)
             }
             .keyboardShortcut("q")
+        } label: {
+            Image(systemName: "photo.on.rectangle")
         }
     }
 }
