@@ -49,7 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.repositionPanel()
+            MainActor.assumeIsolated {
+                self?.repositionPanel()
+            }
         }
     }
 
