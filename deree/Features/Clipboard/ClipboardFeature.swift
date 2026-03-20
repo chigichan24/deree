@@ -1,3 +1,4 @@
+import AppKit
 import ComposableArchitecture
 import Foundation
 
@@ -6,6 +7,7 @@ struct ClipboardFeature {
     @ObservableState
     struct State: Equatable {
         var images: IdentifiedArrayOf<ClipboardImage> = []
+        var thumbnails: [UUID: Data] = [:]
         var isPolling: Bool = false
         var lastChangeCount: Int = 0
         var lastError: String?
@@ -16,7 +18,9 @@ struct ClipboardFeature {
         case stopPolling
         case timerTicked
         case imagesLoaded(IdentifiedArrayOf<ClipboardImage>)
+        case thumbnailsLoaded([UUID: Data])
         case imageSaved(SaveResult)
+        case thumbnailLoaded(UUID, Data)
         case imageDeleted(ClipboardImage.ID)
         case copyImageToPasteboard(ClipboardImage.ID)
         case imageCopiedToPasteboard
@@ -40,6 +44,13 @@ struct ClipboardFeature {
                         do {
                             let images = try await storageClient.loadAll()
                             await send(.imagesLoaded(images))
+                            var thumbs: [UUID: Data] = [:]
+                            for image in images {
+                                if let data = try? await storageClient.loadThumbnail(image.id) {
+                                    thumbs[image.id] = data
+                                }
+                            }
+                            await send(.thumbnailsLoaded(thumbs))
                         } catch {
                             await send(.operationFailed(error.localizedDescription))
                         }
@@ -72,6 +83,9 @@ struct ClipboardFeature {
                     do {
                         let result = try await storageClient.save(imageData)
                         await send(.imageSaved(result))
+                        if let thumbData = try? await storageClient.loadThumbnail(result.saved.id) {
+                            await send(.thumbnailLoaded(result.saved.id, thumbData))
+                        }
                     } catch {
                         await send(.operationFailed(error.localizedDescription))
                     }
@@ -82,16 +96,26 @@ struct ClipboardFeature {
                 state.lastError = nil
                 return .none
 
+            case let .thumbnailsLoaded(thumbs):
+                state.thumbnails.merge(thumbs) { _, new in new }
+                return .none
+
             case let .imageSaved(result):
                 state.images.insert(result.saved, at: 0)
                 for id in result.evictedIDs {
                     state.images.remove(id: id)
+                    state.thumbnails.removeValue(forKey: id)
                 }
                 state.lastError = nil
                 return .none
 
+            case let .thumbnailLoaded(id, data):
+                state.thumbnails[id] = data
+                return .none
+
             case let .imageDeleted(id):
                 state.images.remove(id: id)
+                state.thumbnails.removeValue(forKey: id)
                 return .none
 
             case let .copyImageToPasteboard(id):

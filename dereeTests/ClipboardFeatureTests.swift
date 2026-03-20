@@ -24,6 +24,7 @@ struct ClipboardFeatureTests {
         } withDependencies: {
             $0.clipboardClient.changeCount = { 5 }
             $0.storageClient.loadAll = { mockImages }
+            $0.storageClient.loadThumbnail = { _ in Data() }
             $0.continuousClock = ImmediateClock()
         }
 
@@ -88,7 +89,10 @@ struct ClipboardFeatureTests {
             $0.clipboardClient.changeCount = { 6 }
             $0.clipboardClient.readImage = { testImageData }
             $0.storageClient.save = { _ in SaveResult(saved: savedImage, evictedIDs: []) }
+            $0.storageClient.loadThumbnail = { _ in Data() }
         }
+
+        store.exhaustivity = .off
 
         await store.send(.timerTicked) {
             $0.lastChangeCount = 6

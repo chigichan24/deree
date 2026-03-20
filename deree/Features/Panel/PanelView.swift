@@ -1,3 +1,4 @@
+import AppKit
 import ComposableArchitecture
 import SwiftUI
 
@@ -49,7 +50,7 @@ struct PanelView: View {
                     } label: {
                         ThumbnailView(
                             image: image,
-                            thumbnail: nil
+                            thumbnail: store.thumbnails[image.id].flatMap { NSImage(data: $0) }
                         )
                     }
                     .buttonStyle(.plain)
