@@ -8,6 +8,7 @@ struct ClipboardFeature {
         var images: IdentifiedArrayOf<ClipboardImage> = []
         var isPolling: Bool = false
         var lastChangeCount: Int = 0
+        var lastError: String?
     }
 
     enum Action: Equatable {
@@ -19,6 +20,7 @@ struct ClipboardFeature {
         case imageDeleted(ClipboardImage.ID)
         case copyImageToPasteboard(ClipboardImage.ID)
         case imageCopiedToPasteboard
+        case operationFailed(String)
     }
 
     @Dependency(\.clipboardClient) var clipboardClient
@@ -35,8 +37,12 @@ struct ClipboardFeature {
                 state.lastChangeCount = clipboardClient.changeCount()
                 return .merge(
                     .run { send in
-                        let images = try await storageClient.loadAll()
-                        await send(.imagesLoaded(images))
+                        do {
+                            let images = try await storageClient.loadAll()
+                            await send(.imagesLoaded(images))
+                        } catch {
+                            await send(.operationFailed(error.localizedDescription))
+                        }
                     },
                     .run { send in
                         for await _ in clock.timer(interval: .milliseconds(500)) {
@@ -63,12 +69,17 @@ struct ClipboardFeature {
                 }
 
                 return .run { send in
-                    let result = try await storageClient.save(imageData)
-                    await send(.imageSaved(result))
+                    do {
+                        let result = try await storageClient.save(imageData)
+                        await send(.imageSaved(result))
+                    } catch {
+                        await send(.operationFailed(error.localizedDescription))
+                    }
                 }
 
             case let .imagesLoaded(images):
                 state.images = images
+                state.lastError = nil
                 return .none
 
             case let .imageSaved(result):
@@ -76,6 +87,7 @@ struct ClipboardFeature {
                 for id in result.evictedIDs {
                     state.images.remove(id: id)
                 }
+                state.lastError = nil
                 return .none
 
             case let .imageDeleted(id):
@@ -85,13 +97,21 @@ struct ClipboardFeature {
             case let .copyImageToPasteboard(id):
                 guard state.images[id: id] != nil else { return .none }
                 return .run { [id] send in
-                    let fullData = try await storageClient.loadFull(id)
-                    clipboardClient.writeImage(fullData)
-                    await send(.imageCopiedToPasteboard)
+                    do {
+                        let fullData = try await storageClient.loadFull(id)
+                        await MainActor.run { clipboardClient.writeImage(fullData) }
+                        await send(.imageCopiedToPasteboard)
+                    } catch {
+                        await send(.operationFailed(error.localizedDescription))
+                    }
                 }
 
             case .imageCopiedToPasteboard:
                 state.lastChangeCount = clipboardClient.changeCount()
+                return .none
+
+            case let .operationFailed(message):
+                state.lastError = message
                 return .none
             }
         }
