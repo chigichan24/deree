@@ -10,7 +10,7 @@ struct PanelView: View {
             Divider()
             contentView
         }
-        .frame(width: 280)
+        .frame(width: PanelConstants.width)
         .frame(maxHeight: .infinity)
         .background(.ultraThinMaterial)
     }

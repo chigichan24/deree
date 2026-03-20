@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupFloatingPanel() {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
-        let panelWidth: CGFloat = 280
+        let panelWidth = PanelConstants.width
         let contentRect = NSRect(
             x: screenFrame.maxX - panelWidth,
             y: screenFrame.origin.y,
@@ -56,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func repositionPanel() {
         guard let screen = NSScreen.main, let panel = floatingPanel else { return }
         let screenFrame = screen.visibleFrame
-        let panelWidth: CGFloat = 280
+        let panelWidth = PanelConstants.width
         let newFrame = NSRect(
             x: screenFrame.maxX - panelWidth,
             y: screenFrame.origin.y,
