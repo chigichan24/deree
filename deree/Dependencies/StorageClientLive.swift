@@ -107,7 +107,12 @@ private final class LiveStorage: Sendable {
         )
 
         // Update metadata
-        var images = (try? readMetadata()) ?? []
+        var images: [ClipboardImage]
+        if FileManager.default.fileExists(atPath: metadataURL.path) {
+            images = try readMetadata()
+        } else {
+            images = []
+        }
         images.insert(image, at: 0)
 
         // Enforce cap
