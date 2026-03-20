@@ -9,22 +9,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var floatingPanel: FloatingPanel?
+    private var statusItem: NSStatusItem?
     private var screenObserver: (any NSObjectProtocol)?
     private var deactivateObserver: (any NSObjectProtocol)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setupStatusItem()
         setupFloatingPanel()
         store.send(.appDidFinishLaunching)
 
         _ = observe { [weak self] in
             guard let self else { return }
             let isVisible = store.panel.isPanelVisible
+            updateStatusIcon(active: isVisible)
             if isVisible {
                 floatingPanel?.slideIn()
             } else {
                 floatingPanel?.slideOut {}
             }
         }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    // MARK: - Status Item (Menu Bar Icon)
+
+    private func setupStatusItem() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem?.button {
+            button.image = NSImage(
+                systemSymbolName: "photo.on.rectangle",
+                accessibilityDescription: "deree"
+            )
+            button.action = #selector(statusItemClicked(_:))
+            button.target = self
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else { return }
+
+        if event.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            store.send(.menuBarToggleTapped)
+        }
+    }
+
+    private func showContextMenu() {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Quit deree", action: #selector(quitApp), keyEquivalent: "q")
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    @objc private func quitApp() {
+        store.send(.quitButtonTapped)
+    }
+
+    private func updateStatusIcon(active: Bool) {
+        statusItem?.button?.image = NSImage(
+            systemSymbolName: active ? "photo.on.rectangle.fill" : "photo.on.rectangle",
+            accessibilityDescription: "deree"
+        )
     }
 
     // MARK: - Floating Panel
