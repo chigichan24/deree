@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var floatingPanel: FloatingPanel?
+    private var screenObserver: (any NSObjectProtocol)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupFloatingPanel()
@@ -29,14 +30,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let screen = NSScreen.main else { return }
 
         let panel = FloatingPanel(contentRect: PanelConstants.frame(for: screen))
-        let panelView = PanelView(
+        let panelView = ClipboardImageListView(
             store: store.scope(state: \.clipboard, action: \.clipboard)
         )
         panel.contentView = NSHostingView(rootView: panelView)
         panel.delegate = self
         floatingPanel = panel
 
-        NotificationCenter.default.addObserver(
+        screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main

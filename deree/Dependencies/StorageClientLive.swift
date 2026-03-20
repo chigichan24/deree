@@ -42,6 +42,8 @@ extension StorageClient: DependencyKey {
 @StorageActor
 private final class LiveStorage: Sendable {
     private static let logger = Logger(subsystem: "com.chigichan24.deree", category: "LiveStorage")
+    private static let maxImageCount = 50
+    private static let thumbnailMaxWidth: CGFloat = 200
 
     let baseDirectory: URL
     private var fullDirectory: URL { baseDirectory.appendingPathComponent("full") }
@@ -106,26 +108,11 @@ private final class LiveStorage: Sendable {
             throw error
         }
 
-        let image = ClipboardImage(
-            id: id,
-            createdAt: now,
-            width: width,
-            height: height
-        )
+        let image = ClipboardImage(id: id, createdAt: now, width: width, height: height)
 
         var images = try readMetadata()
         images.insert(image, at: 0)
-
-        var evictedIDs: [UUID] = []
-        while images.count > Self.maxImageCount {
-            let removed = images.removeLast()
-            do {
-                try removeFilesStrict(for: removed.id)
-            } catch {
-                Self.logger.warning("Failed to remove evicted files for \(removed.id): \(error)")
-            }
-            evictedIDs.append(removed.id)
-        }
+        let evictedIDs = evictExcessImages(from: &images)
 
         do {
             try writeMetadata(images)
@@ -154,12 +141,23 @@ private final class LiveStorage: Sendable {
 
     // MARK: - Private helpers
 
-    private static let maxImageCount = 50
-    private static let thumbnailMaxWidth: CGFloat = 200
-
     private func ensureDirectories() throws {
         try FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: thumbDirectory, withIntermediateDirectories: true)
+    }
+
+    private func evictExcessImages(from images: inout [ClipboardImage]) -> Set<UUID> {
+        var evictedIDs = Set<UUID>()
+        while images.count > Self.maxImageCount {
+            let removed = images.removeLast()
+            do {
+                try removeFilesStrict(for: removed.id)
+            } catch {
+                Self.logger.warning("Failed to remove evicted files for \(removed.id): \(error)")
+            }
+            evictedIDs.insert(removed.id)
+        }
+        return evictedIDs
     }
 
     private func parseImageDimensions(from imageData: Data) throws -> (width: Int, height: Int) {
@@ -178,20 +176,13 @@ private final class LiveStorage: Sendable {
             return []
         }
         let data = try Data(contentsOf: metadataURL)
-        let decoder = JSONDecoder()
-        return try decoder.decode([ClipboardImage].self, from: data)
+        return try JSONDecoder().decode([ClipboardImage].self, from: data)
     }
 
     private func writeMetadata(_ images: [ClipboardImage]) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(images)
-        try data.write(to: metadataURL)
-    }
-
-    private func removeFiles(for id: UUID) {
-        try? FileManager.default.removeItem(at: fullFileURL(for: id))
-        try? FileManager.default.removeItem(at: thumbFileURL(for: id))
+        try encoder.encode(images).write(to: metadataURL)
     }
 
     private func removeFilesStrict(for id: UUID) throws {
@@ -241,18 +232,20 @@ private final class LiveStorage: Sendable {
             throw StorageError.thumbnailGenerationFailed
         }
 
+        return try encodePNG(from: thumbnail)
+    }
+
+    private func encodePNG(from cgImage: CGImage) throws -> Data {
         let mutableData = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(
             mutableData as CFMutableData, "public.png" as CFString, 1, nil
         ) else {
             throw StorageError.thumbnailGenerationFailed
         }
-
-        CGImageDestinationAddImage(destination, thumbnail, nil)
+        CGImageDestinationAddImage(destination, cgImage, nil)
         guard CGImageDestinationFinalize(destination) else {
             throw StorageError.thumbnailGenerationFailed
         }
-
         return mutableData as Data
     }
 }

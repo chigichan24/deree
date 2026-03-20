@@ -5,7 +5,7 @@ import IdentifiedCollections
 
 struct SaveResult: Equatable, Sendable {
     let saved: ClipboardImage
-    let evictedIDs: [UUID]
+    let evictedIDs: Set<UUID>
 }
 
 @DependencyClient

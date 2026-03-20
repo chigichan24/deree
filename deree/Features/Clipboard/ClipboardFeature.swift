@@ -3,11 +3,6 @@ import ComposableArchitecture
 import Foundation
 import os
 
-enum FeatureError: Equatable, Sendable {
-    case storageFailed(StorageError)
-    case clipboardFailed(ClipboardError)
-}
-
 @Reducer
 struct ClipboardFeature {
     @ObservableState
@@ -54,8 +49,10 @@ struct ClipboardFeature {
                             await send(.imagesLoaded(images))
                             let thumbs = await loadThumbnails(for: images)
                             await send(.thumbnailsLoaded(thumbs))
+                        } catch let error as StorageError {
+                            await send(.operationFailed(.storageFailed(error)))
                         } catch {
-                            await send(.operationFailed(.storageFailed(error as? StorageError ?? .invalidImageData)))
+                            await send(.operationFailed(.storageFailed(.invalidImageData)))
                         }
                     },
                     .run { send in

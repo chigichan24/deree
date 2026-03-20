@@ -2,7 +2,7 @@ import AppKit
 import ComposableArchitecture
 import SwiftUI
 
-struct PanelView: View {
+struct ClipboardImageListView: View {
     let store: StoreOf<ClipboardFeature>
 
     var body: some View {
@@ -87,7 +87,7 @@ private struct CachedThumbnailView: View {
 }
 
 #Preview("Empty State") {
-    PanelView(
+    ClipboardImageListView(
         store: Store(
             initialState: ClipboardFeature.State()
         ) {
@@ -98,7 +98,7 @@ private struct CachedThumbnailView: View {
 }
 
 #Preview("With Images") {
-    PanelView(
+    ClipboardImageListView(
         store: Store(
             initialState: ClipboardFeature.State(
                 images: [
