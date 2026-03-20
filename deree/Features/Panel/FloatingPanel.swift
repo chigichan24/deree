@@ -27,6 +27,44 @@ final class FloatingPanel: NSPanel {
         isReleasedWhenClosed = false
 
         hidesOnDeactivate = false
+        animationBehavior = .utilityWindow
+    }
+
+    func slideIn() {
+        guard let screen = NSScreen.main else { return }
+        let targetFrame = PanelConstants.frame(for: screen)
+
+        // Start off-screen to the right
+        var startFrame = targetFrame
+        startFrame.origin.x = screen.visibleFrame.maxX
+        setFrame(startFrame, display: false)
+        orderFront(nil)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().setFrame(targetFrame, display: true)
+        }
+    }
+
+    func slideOut(completion: @escaping () -> Void) {
+        guard let screen = NSScreen.main else {
+            orderOut(nil)
+            completion()
+            return
+        }
+
+        var offscreenFrame = frame
+        offscreenFrame.origin.x = screen.visibleFrame.maxX
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            self.animator().setFrame(offscreenFrame, display: true)
+        }, completionHandler: {
+            self.orderOut(nil)
+            completion()
+        })
     }
 
     override var canBecomeKey: Bool {
