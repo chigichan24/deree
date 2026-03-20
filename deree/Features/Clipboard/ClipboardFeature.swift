@@ -84,8 +84,10 @@ struct ClipboardFeature {
                         let result = try await storageClient.save(imageData)
                         await send(.imageSaved(result))
                         await loadThumbnail(for: result.saved.id, send: send)
+                    } catch let error as StorageError {
+                        await send(.operationFailed(.storageFailed(error)))
                     } catch {
-                        await send(.operationFailed(.storageFailed(error as? StorageError ?? .invalidImageData)))
+                        await send(.operationFailed(.unexpectedError(error.localizedDescription)))
                     }
                 }
 
@@ -127,11 +129,13 @@ struct ClipboardFeature {
                 }
 
             case let .copyImageToPasteboard(id):
+                // Quick bail-out for IDs not in current state; storage-level
+                // not-found is still handled in the catch below for race cases.
                 guard state.images[id: id] != nil else { return .none }
                 return .run { [id] send in
                     do {
                         let fullData = try await storageClient.loadFull(id)
-                        try await MainActor.run { try clipboardClient.writeImage(fullData) }
+                        try await clipboardClient.writeImage(fullData)
                         await send(.imageCopiedToPasteboard)
                     } catch let error as StorageError {
                         await send(.operationFailed(.storageFailed(error)))

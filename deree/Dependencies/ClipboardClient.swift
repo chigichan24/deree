@@ -10,7 +10,7 @@ enum ClipboardError: Error, Equatable {
 struct ClipboardClient: Sendable {
     var changeCount: @Sendable () -> Int = { 0 }
     var readImage: @Sendable () -> Data? = { nil }
-    var writeImage: @Sendable (Data) throws -> Void
+    var writeImage: @Sendable (Data) async throws -> Void
 }
 
 extension ClipboardClient: DependencyKey {
@@ -40,7 +40,7 @@ extension ClipboardClient: DependencyKey {
             }
         },
         writeImage: { data in
-            try MainActor.assumeIsolated {
+            try await MainActor.run {
                 guard let image = NSImage(data: data) else {
                     throw ClipboardError.invalidImageData
                 }
