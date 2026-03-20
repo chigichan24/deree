@@ -6,8 +6,11 @@ struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
     let width: Int
     let height: Int
 
-    var thumbnailFileName: String { "thumb_\(id).png" }
-    var fullFileName: String { "full_\(id).png" }
+    static func fullFileName(for id: UUID) -> String { "full_\(id).png" }
+    static func thumbFileName(for id: UUID) -> String { "thumb_\(id).png" }
+
+    var thumbnailFileName: String { Self.thumbFileName(for: id) }
+    var fullFileName: String { Self.fullFileName(for: id) }
 
     private enum CodingKeys: String, CodingKey {
         case id, createdAt, width, height

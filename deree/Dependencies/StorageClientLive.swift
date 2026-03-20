@@ -55,11 +55,11 @@ private final class LiveStorage: Sendable {
     // MARK: - File URL helpers
 
     private func fullFileURL(for id: UUID) -> URL {
-        fullDirectory.appendingPathComponent("full_\(id).png")
+        fullDirectory.appendingPathComponent(ClipboardImage.fullFileName(for: id))
     }
 
     private func thumbFileURL(for id: UUID) -> URL {
-        thumbDirectory.appendingPathComponent("thumb_\(id).png")
+        thumbDirectory.appendingPathComponent(ClipboardImage.thumbFileName(for: id))
     }
 
     // MARK: - Public API
