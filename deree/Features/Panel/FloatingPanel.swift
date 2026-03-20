@@ -33,15 +33,7 @@ final class FloatingPanel: NSPanel {
 
     private func positionAtRightEdge() {
         guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-        let panelWidth = PanelConstants.width
-        let panelFrame = NSRect(
-            x: screenFrame.maxX - panelWidth,
-            y: screenFrame.origin.y,
-            width: panelWidth,
-            height: screenFrame.height
-        )
-        setFrame(panelFrame, display: true)
+        setFrame(PanelConstants.frame(for: screen), display: true)
     }
 
     override var canBecomeKey: Bool {

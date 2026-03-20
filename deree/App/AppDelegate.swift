@@ -27,16 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupFloatingPanel() {
         guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-        let panelWidth = PanelConstants.width
-        let contentRect = NSRect(
-            x: screenFrame.maxX - panelWidth,
-            y: screenFrame.origin.y,
-            width: panelWidth,
-            height: screenFrame.height
-        )
 
-        let panel = FloatingPanel(contentRect: contentRect)
+        let panel = FloatingPanel(contentRect: PanelConstants.frame(for: screen))
         let panelView = PanelView(
             store: store.scope(state: \.clipboard, action: \.clipboard)
         )
@@ -57,15 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func repositionPanel() {
         guard let screen = NSScreen.main, let panel = floatingPanel else { return }
-        let screenFrame = screen.visibleFrame
-        let panelWidth = PanelConstants.width
-        let newFrame = NSRect(
-            x: screenFrame.maxX - panelWidth,
-            y: screenFrame.origin.y,
-            width: panelWidth,
-            height: screenFrame.height
-        )
-        panel.setFrame(newFrame, display: true)
+        panel.setFrame(PanelConstants.frame(for: screen), display: true)
     }
 }
 
