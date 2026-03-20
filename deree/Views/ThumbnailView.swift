@@ -7,14 +7,12 @@ struct ThumbnailView: View {
     @State private var isHovered: Bool = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            thumbnailContent
-            timestampOverlay
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 160)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .contentShape(RoundedRectangle(cornerRadius: 8))
+        Color.clear
+            .overlay { thumbnailContent }
+            .overlay(alignment: .bottomTrailing) { timestampOverlay }
+            .frame(maxWidth: .infinity)
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
