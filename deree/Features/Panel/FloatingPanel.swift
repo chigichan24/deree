@@ -27,13 +27,6 @@ final class FloatingPanel: NSPanel {
         isReleasedWhenClosed = false
 
         hidesOnDeactivate = false
-
-        positionAtRightEdge()
-    }
-
-    private func positionAtRightEdge() {
-        guard let screen = NSScreen.main else { return }
-        setFrame(PanelConstants.frame(for: screen), display: true)
     }
 
     override var canBecomeKey: Bool {
