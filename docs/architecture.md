@@ -18,15 +18,15 @@ AppReducer (root)
 
 ## Dependencies
 
-TCA `@Dependency` で副作用を注入。テスト時は `TestStore` + `TestClock` で差し替え。
+Side effects are injected via TCA `@Dependency`. Tests swap them out using `TestStore` + `TestClock`.
 
 | Dependency | Role |
 |-----------|------|
-| `ClipboardClient` | `NSPasteboard` の read/write/changeCount ラッパー。`readImage` はファイルURL（Finder Cmd+C）にも対応。`writeImage` は `async throws` |
-| `StorageClient` | ディスクへの画像保存/読込/削除。`save` は `SaveResult` を返し、保存した画像と eviction で削除された画像IDを含む |
-| `ContinuousClock` | TCA 組み込み。ポーリングタイマー。テストでは `ImmediateClock` / `TestClock` |
+| `ClipboardClient` | Wraps `NSPasteboard` read/write/changeCount. `readImage` supports both direct image data and file URLs (Finder Cmd+C). `writeImage` is `async throws` |
+| `StorageClient` | Disk-based image save/load/delete. `save` returns `SaveResult` containing the saved image and evicted image IDs |
+| `ContinuousClock` | Built-in TCA clock for polling timer. Replaced with `ImmediateClock` / `TestClock` in tests |
 
-ビジネスパラメータは `StorageConstants` に集約（`maxImageCount = 50`, `thumbnailMaxWidth = 200`）。
+Business parameters are centralized in `StorageConstants` (`maxImageCount = 50`, `thumbnailMaxWidth = 200`).
 
 ## Error Design
 
@@ -45,7 +45,7 @@ ClipboardError
   └── .invalidImageData
 ```
 
-全ての `.run` Effect は `do/catch` でエラーを捕捉し、型別 catch で適切な `FeatureError` に変換。サムネイルロード失敗は `os.Logger` で警告のみ（フォールバック表示）。
+All `.run` Effects use `do/catch` with typed catch clauses to convert errors into the appropriate `FeatureError` variant. Thumbnail load failures are logged via `os.Logger` and fall back to a placeholder display.
 
 ## Data Flow
 
@@ -58,13 +58,13 @@ ClipboardFeature: timerTicked (every 0.5s)
         │  → readImage (file URL first, then direct NSImage)
         ▼
 StorageClient.save(imageData) → SaveResult
-        │  → CGImageSource からメタデータ解析 + サムネイル生成
+        │  → parse metadata + generate thumbnail via shared CGImageSource
         │  → full PNG to ~/Library/Application Support/deree/full/
         │  → thumbnail to ~/Library/Application Support/deree/thumb/
-        │  → metadata.json 更新 + 50件超過分を eviction
-        │  → 失敗時はファイルをロールバック削除
+        │  → update metadata.json + evict images exceeding 50
+        │  → rollback written files on failure
         ▼
-State.images + State.thumbnails 更新 → SwiftUI auto-refresh
+State.images + State.thumbnails updated → SwiftUI auto-refresh
         │
         ▼
 New image appears in panel
@@ -72,7 +72,7 @@ New image appears in panel
 
 ### Thumbnail Generation
 
-`CGImageSourceCreateThumbnailAtIndex` (ImageIO) を使用。最大幅 200px にリサイズし、PNG にエンコード。CGImageSource は寸法解析と共有して二重パースを回避。
+Uses `CGImageSourceCreateThumbnailAtIndex` (ImageIO) to resize to a max width of 200px and encode as PNG. The `CGImageSource` is shared with dimension parsing to avoid decoding the image data twice.
 
 ### Self-Capture Prevention
 
@@ -87,11 +87,11 @@ Pure SwiftUI cannot create a non-activating floating panel. `FloatingPanel` is a
 - `.canJoinAllSpaces` — visible on all desktops
 - `slideIn()` / `slideOut()` — right-edge slide animation (ease-out 0.2s / ease-in 0.15s)
 
-TCA State is the single source of truth. `AppDelegate` observes `store.panel.isPanelVisible` and calls `slideIn/slideOut` accordingly. パネルはフォーカス消失時（`didResignActiveNotification`）に自動で隠れる。
+TCA State is the single source of truth. `AppDelegate` observes `store.panel.isPanelVisible` and calls `slideIn/slideOut` accordingly. The panel auto-hides when the app loses focus (`didResignActiveNotification`).
 
 ### Menu Bar Integration
 
-`NSStatusItem` を直接使用（SwiftUI `MenuBarExtra` ではない）。左クリックでパネルをトグル、右クリックで Quit メニュー。パネル表示中はアイコンが fill になる。
+Uses `NSStatusItem` directly (not SwiftUI `MenuBarExtra`). Left-click toggles the panel, right-click shows a Quit menu. The icon switches between outline and fill to indicate panel state.
 
 ## Swift 6 Concurrency
 
