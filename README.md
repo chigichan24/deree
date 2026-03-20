@@ -20,16 +20,33 @@ macOS menu bar app that keeps a visual history of images you copy to the clipboa
 - Xcode 16.0 or later
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
-## Build
+## Install
 
 ```bash
 # Install XcodeGen if you don't have it
 brew install xcodegen
 
-# Generate Xcode project
+# Generate Xcode project and build Release
+xcodegen generate
+xcodebuild -project deree.xcodeproj -scheme deree -configuration Release \
+  -destination 'platform=macOS' -skipMacroValidation \
+  -derivedDataPath build
+
+# Copy to Applications
+cp -r build/Build/Products/Release/deree.app /Applications/
+
+# Launch
+open /Applications/deree.app
+```
+
+To launch at login, add deree in System Settings → General → Login Items.
+
+## Development
+
+```bash
 xcodegen generate
 
-# Build
+# Build (debug)
 xcodebuild -project deree.xcodeproj -scheme deree -destination 'platform=macOS' -skipMacroValidation build
 
 # Run tests
