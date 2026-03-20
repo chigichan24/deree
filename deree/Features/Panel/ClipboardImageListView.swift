@@ -48,9 +48,9 @@ struct ClipboardImageListView: View {
                     Button {
                         store.send(.copyImageToPasteboard(image.id))
                     } label: {
-                        CachedThumbnailView(
+                        ThumbnailView(
                             image: image,
-                            thumbnailData: store.thumbnails[image.id]
+                            thumbnail: store.thumbnails[image.id].flatMap { NSImage(data: $0) }
                         )
                     }
                     .buttonStyle(.plain)
@@ -59,30 +59,6 @@ struct ClipboardImageListView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         }
-    }
-}
-
-private struct CachedThumbnailView: View {
-    let image: ClipboardImage
-    let thumbnailData: Data?
-
-    @State private var cachedNSImage: NSImage?
-    @State private var lastData: Data?
-
-    var body: some View {
-        ThumbnailView(image: image, thumbnail: cachedNSImage)
-            .onChange(of: thumbnailData) { _, newData in
-                updateCache(newData)
-            }
-            .onAppear {
-                updateCache(thumbnailData)
-            }
-    }
-
-    private func updateCache(_ data: Data?) {
-        guard data != lastData else { return }
-        lastData = data
-        cachedNSImage = data.flatMap { NSImage(data: $0) }
     }
 }
 
