@@ -37,11 +37,10 @@ extension ClipboardClient: DependencyKey {
         },
         writeImage: { data in
             MainActor.assumeIsolated {
+                guard let image = NSImage(data: data) else { return }
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
-                if let image = NSImage(data: data) {
-                    pasteboard.writeObjects([image])
-                }
+                pasteboard.writeObjects([image])
             }
         }
     )
