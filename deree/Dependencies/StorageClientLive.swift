@@ -47,6 +47,18 @@ private final class LiveStorage: Sendable {
         self.baseDirectory = baseDirectory
     }
 
+    // MARK: - File URL helpers
+
+    private func fullFileURL(for id: UUID) -> URL {
+        fullDirectory.appendingPathComponent("full_\(id).png")
+    }
+
+    private func thumbFileURL(for id: UUID) -> URL {
+        thumbDirectory.appendingPathComponent("thumb_\(id).png")
+    }
+
+    // MARK: - Public API
+
     @StorageActor
     func loadAll() throws -> IdentifiedArrayOf<ClipboardImage> {
         let images = try readMetadata()
@@ -55,7 +67,7 @@ private final class LiveStorage: Sendable {
 
     @StorageActor
     func loadFull(id: UUID) throws -> Data {
-        let url = fullDirectory.appendingPathComponent("full_\(id).png")
+        let url = fullFileURL(for: id)
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw StorageError.imageNotFound(id)
         }
@@ -64,7 +76,7 @@ private final class LiveStorage: Sendable {
 
     @StorageActor
     func loadThumbnail(id: UUID) throws -> Data {
-        let url = thumbDirectory.appendingPathComponent("thumb_\(id).png")
+        let url = thumbFileURL(for: id)
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw StorageError.imageNotFound(id)
         }
@@ -77,38 +89,29 @@ private final class LiveStorage: Sendable {
 
         let id = UUID()
         let now = Date()
+        let (width, height) = try parseImageDimensions(from: imageData)
 
-        // Parse image dimensions
-        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int
-        else {
-            throw StorageError.invalidImageData
-        }
+        let fullURL = fullFileURL(for: id)
+        let thumbURL = thumbFileURL(for: id)
 
-        let fullFileName = "full_\(id).png"
-        let thumbFileName = "thumb_\(id).png"
-
-        // Save full image
-        let fullURL = fullDirectory.appendingPathComponent(fullFileName)
         try imageData.write(to: fullURL)
 
-        // Generate and save thumbnail
-        let thumbnailData = try generateThumbnail(from: imageData, maxWidth: 200)
-        let thumbURL = thumbDirectory.appendingPathComponent(thumbFileName)
-        try thumbnailData.write(to: thumbURL)
+        let thumbnailData: Data
+        do {
+            thumbnailData = try generateThumbnail(from: imageData, maxWidth: 200)
+            try thumbnailData.write(to: thumbURL)
+        } catch {
+            try? FileManager.default.removeItem(at: fullURL)
+            throw error
+        }
 
         let image = ClipboardImage(
             id: id,
             createdAt: now,
-            thumbnailFileName: thumbFileName,
-            fullFileName: fullFileName,
             width: width,
             height: height
         )
 
-        // Update metadata
         var images: [ClipboardImage]
         if FileManager.default.fileExists(atPath: metadataURL.path) {
             images = try readMetadata()
@@ -117,15 +120,20 @@ private final class LiveStorage: Sendable {
         }
         images.insert(image, at: 0)
 
-        // Enforce cap
         var evictedIDs: [UUID] = []
         while images.count > Self.maxImageCount {
             let removed = images.removeLast()
-            removeFiles(for: removed)
+            removeFiles(for: removed.id)
             evictedIDs.append(removed.id)
         }
 
-        try writeMetadata(images)
+        do {
+            try writeMetadata(images)
+        } catch {
+            try? FileManager.default.removeItem(at: fullURL)
+            try? FileManager.default.removeItem(at: thumbURL)
+            throw error
+        }
 
         return SaveResult(saved: image, evictedIDs: evictedIDs)
     }
@@ -136,9 +144,8 @@ private final class LiveStorage: Sendable {
         guard let index = images.firstIndex(where: { $0.id == id }) else {
             throw StorageError.imageNotFound(id)
         }
-        let image = images[index]
-        removeFiles(for: image)
         images.remove(at: index)
+        try removeFilesStrict(for: id)
         try writeMetadata(images)
     }
 
@@ -149,6 +156,17 @@ private final class LiveStorage: Sendable {
     private func ensureDirectories() throws {
         try FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: thumbDirectory, withIntermediateDirectories: true)
+    }
+
+    private func parseImageDimensions(from imageData: Data) throws -> (width: Int, height: Int) {
+        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else {
+            throw StorageError.invalidImageData
+        }
+        return (width, height)
     }
 
     private func readMetadata() throws -> [ClipboardImage] {
@@ -167,11 +185,20 @@ private final class LiveStorage: Sendable {
         try data.write(to: metadataURL)
     }
 
-    private func removeFiles(for image: ClipboardImage) {
-        let fullURL = fullDirectory.appendingPathComponent(image.fullFileName)
-        let thumbURL = thumbDirectory.appendingPathComponent(image.thumbnailFileName)
-        try? FileManager.default.removeItem(at: fullURL)
-        try? FileManager.default.removeItem(at: thumbURL)
+    private func removeFiles(for id: UUID) {
+        try? FileManager.default.removeItem(at: fullFileURL(for: id))
+        try? FileManager.default.removeItem(at: thumbFileURL(for: id))
+    }
+
+    private func removeFilesStrict(for id: UUID) throws {
+        let fullURL = fullFileURL(for: id)
+        let thumbURL = thumbFileURL(for: id)
+        if FileManager.default.fileExists(atPath: fullURL.path) {
+            try FileManager.default.removeItem(at: fullURL)
+        }
+        if FileManager.default.fileExists(atPath: thumbURL.path) {
+            try FileManager.default.removeItem(at: thumbURL)
+        }
     }
 
     private func generateThumbnail(from imageData: Data, maxWidth: CGFloat) throws -> Data {

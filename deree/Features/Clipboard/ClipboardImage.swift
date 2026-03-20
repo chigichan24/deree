@@ -3,18 +3,37 @@ import Foundation
 struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
     let id: UUID
     let createdAt: Date
-    let thumbnailFileName: String
-    let fullFileName: String
     let width: Int
     let height: Int
 
-    init(id: UUID, createdAt: Date, thumbnailFileName: String, fullFileName: String, width: Int, height: Int) {
+    var thumbnailFileName: String { "thumb_\(id).png" }
+    var fullFileName: String { "full_\(id).png" }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, createdAt, width, height
+    }
+
+    init(id: UUID, createdAt: Date, width: Int, height: Int) {
         precondition(width > 0 && height > 0, "Image dimensions must be positive")
         self.id = id
         self.createdAt = createdAt
-        self.thumbnailFileName = thumbnailFileName
-        self.fullFileName = fullFileName
         self.width = width
         self.height = height
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        width = try container.decode(Int.self, forKey: .width)
+        height = try container.decode(Int.self, forKey: .height)
+        guard width > 0, height > 0 else {
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: container.codingPath,
+                    debugDescription: "Image dimensions must be positive (got \(width)x\(height))"
+                )
+            )
+        }
     }
 }

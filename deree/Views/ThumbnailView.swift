@@ -68,8 +68,6 @@ struct ThumbnailView: View {
         image: ClipboardImage(
             id: UUID(),
             createdAt: Date().addingTimeInterval(-120),
-            thumbnailFileName: "thumb.png",
-            fullFileName: "full.png",
             width: 800,
             height: 600
         ),
@@ -93,8 +91,6 @@ struct ThumbnailView: View {
         image: ClipboardImage(
             id: UUID(),
             createdAt: Date().addingTimeInterval(-3600),
-            thumbnailFileName: "thumb.png",
-            fullFileName: "full.png",
             width: 200,
             height: 150
         ),

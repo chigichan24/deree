@@ -81,24 +81,18 @@ struct PanelView: View {
                     ClipboardImage(
                         id: UUID(),
                         createdAt: Date().addingTimeInterval(-60),
-                        thumbnailFileName: "thumb1.png",
-                        fullFileName: "full1.png",
                         width: 800,
                         height: 600
                     ),
                     ClipboardImage(
                         id: UUID(),
                         createdAt: Date().addingTimeInterval(-300),
-                        thumbnailFileName: "thumb2.png",
-                        fullFileName: "full2.png",
                         width: 1920,
                         height: 1080
                     ),
                     ClipboardImage(
                         id: UUID(),
                         createdAt: Date().addingTimeInterval(-3600),
-                        thumbnailFileName: "thumb3.png",
-                        fullFileName: "full3.png",
                         width: 400,
                         height: 400
                     ),

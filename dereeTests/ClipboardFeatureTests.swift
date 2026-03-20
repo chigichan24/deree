@@ -12,8 +12,7 @@ struct ClipboardFeatureTests {
             ClipboardImage(
                 id: UUID(0),
                 createdAt: Date(timeIntervalSince1970: 200),
-                thumbnailFileName: "thumb_0.png",
-                fullFileName: "full_0.png",
+
                 width: 100,
                 height: 100
             ),
@@ -71,8 +70,6 @@ struct ClipboardFeatureTests {
         let savedImage = ClipboardImage(
             id: UUID(0),
             createdAt: Date(),
-            thumbnailFileName: "thumb_0.png",
-            fullFileName: "full_0.png",
             width: 200,
             height: 150
         )
@@ -128,8 +125,7 @@ struct ClipboardFeatureTests {
                 ClipboardImage(
                     id: UUID(i),
                     createdAt: Date(timeIntervalSince1970: Double(1000 - i)),
-                    thumbnailFileName: "thumb_\(i).png",
-                    fullFileName: "full_\(i).png",
+
                     width: 100,
                     height: 100
                 )
@@ -139,8 +135,7 @@ struct ClipboardFeatureTests {
         let newImage = ClipboardImage(
             id: UUID(99),
             createdAt: Date(timeIntervalSince1970: 2000),
-            thumbnailFileName: "thumb_99.png",
-            fullFileName: "full_99.png",
+
             width: 200,
             height: 150
         )
@@ -164,8 +159,6 @@ struct ClipboardFeatureTests {
         let image = ClipboardImage(
             id: UUID(0),
             createdAt: Date(),
-            thumbnailFileName: "thumb_0.png",
-            fullFileName: "full_0.png",
             width: 100,
             height: 100
         )
@@ -201,8 +194,7 @@ struct ClipboardFeatureTests {
             ClipboardImage(
                 id: UUID(0),
                 createdAt: Date(),
-                thumbnailFileName: "thumb_0.png",
-                fullFileName: "full_0.png",
+
                 width: 100,
                 height: 100
             ),
