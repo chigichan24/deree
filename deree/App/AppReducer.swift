@@ -27,7 +27,10 @@ struct AppReducer {
         Reduce { _, action in
             switch action {
             case .appDidFinishLaunching:
-                return .send(.clipboard(.startPolling))
+                return .merge(
+                    .send(.clipboard(.startPolling)),
+                    .send(.panel(.showPanel))
+                )
 
             case .menuBarToggleTapped:
                 return .send(.panel(.togglePanel))
