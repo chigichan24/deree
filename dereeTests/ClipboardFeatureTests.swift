@@ -254,4 +254,43 @@ struct ClipboardFeatureTests {
             $0.lastError = .storageFailed(.imageNotFound(UUID(0)))
         }
     }
+
+    @Test func imagesLoaded_clearsLastError() async {
+        let store = TestStore(
+            initialState: ClipboardFeature.State(
+                lastError: .storageFailed(.invalidImageData)
+            )
+        ) {
+            ClipboardFeature()
+        }
+
+        await store.send(.imagesLoaded([])) {
+            $0.images = []
+            $0.thumbnails = [:]
+            $0.lastError = nil
+        }
+    }
+
+    @Test func imageSaved_clearsLastError() async {
+        let newImage = ClipboardImage(
+            id: UUID(0),
+            createdAt: Date(),
+            width: 100,
+            height: 100
+        )
+        let result = SaveResult(saved: newImage, evictedIDs: [])
+
+        let store = TestStore(
+            initialState: ClipboardFeature.State(
+                lastError: .storageFailed(.invalidImageData)
+            )
+        ) {
+            ClipboardFeature()
+        }
+
+        await store.send(.imageSaved(result)) {
+            $0.images = [newImage]
+            $0.lastError = nil
+        }
+    }
 }

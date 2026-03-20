@@ -118,7 +118,13 @@ struct ClipboardFeature {
             case let .imageDeleted(id):
                 state.images.remove(id: id)
                 state.thumbnails.removeValue(forKey: id)
-                return .none
+                return .run { [id] _ in
+                    do {
+                        try await storageClient.delete(id)
+                    } catch {
+                        Self.logger.warning("Failed to delete image \(id) from storage: \(error)")
+                    }
+                }
 
             case let .copyImageToPasteboard(id):
                 guard state.images[id: id] != nil else { return .none }
