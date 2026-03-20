@@ -42,7 +42,8 @@ struct ClipboardImageListView: View {
     }
 
     private var imageListView: some View {
-        ScrollView(.vertical) {
+        let thumbnails = store.thumbnails
+        return ScrollView(.vertical) {
             LazyVStack(spacing: 8) {
                 ForEach(store.images) { image in
                     Button {
@@ -50,7 +51,7 @@ struct ClipboardImageListView: View {
                     } label: {
                         ThumbnailView(
                             image: image,
-                            thumbnail: store.thumbnails[image.id].flatMap { NSImage(data: $0) }
+                            thumbnail: thumbnails[image.id].flatMap { NSImage(data: $0) }
                         )
                     }
                     .buttonStyle(.plain)
