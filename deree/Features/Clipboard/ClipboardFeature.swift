@@ -123,7 +123,7 @@ struct ClipboardFeature {
                 return .run { [id] send in
                     do {
                         let fullData = try await storageClient.loadFull(id)
-                        await MainActor.run { clipboardClient.writeImage(fullData) }
+                        try await MainActor.run { try clipboardClient.writeImage(fullData) }
                         await send(.imageCopiedToPasteboard)
                     } catch {
                         await send(.operationFailed(error.localizedDescription))

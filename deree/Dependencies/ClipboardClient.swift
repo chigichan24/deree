@@ -2,11 +2,15 @@ import AppKit
 import Dependencies
 import DependenciesMacros
 
+enum ClipboardError: Error, Equatable {
+    case invalidImageData
+}
+
 @DependencyClient
 struct ClipboardClient: Sendable {
     var changeCount: @Sendable () -> Int = { 0 }
     var readImage: @Sendable () -> Data? = { nil }
-    var writeImage: @Sendable (Data) -> Void
+    var writeImage: @Sendable (Data) throws -> Void
 }
 
 extension ClipboardClient: DependencyKey {
@@ -36,8 +40,10 @@ extension ClipboardClient: DependencyKey {
             }
         },
         writeImage: { data in
-            MainActor.assumeIsolated {
-                guard let image = NSImage(data: data) else { return }
+            try MainActor.assumeIsolated {
+                guard let image = NSImage(data: data) else {
+                    throw ClipboardError.invalidImageData
+                }
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
                 pasteboard.writeObjects([image])
