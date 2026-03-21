@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  XCODEGEN_VERSION: "2.45.3"
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache XcodeGen
+        id: cache-xcodegen
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/xcodegen
+          key: xcodegen-${{ env.XCODEGEN_VERSION }}
+
+      - name: Install XcodeGen
+        if: steps.cache-xcodegen.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip" -o /tmp/xcodegen.zip
+          unzip -o /tmp/xcodegen.zip -d /tmp/xcodegen
+          mv /tmp/xcodegen/bin/xcodegen /usr/local/bin/xcodegen
+          chmod +x /usr/local/bin/xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build and Test
+        run: |
+          xcodebuild -project deree.xcodeproj \
+            -scheme dereeTests \
+            -destination 'platform=macOS' \
+            -skipMacroValidation \
+            test
