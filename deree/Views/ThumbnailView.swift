@@ -26,6 +26,7 @@ struct ThumbnailView: View {
                 )
                 .allowsHitTesting(false)
         }
+        .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = hovering
         }

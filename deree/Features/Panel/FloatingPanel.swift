@@ -17,6 +17,7 @@ final class FloatingPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
 
+        acceptsMouseMovedEvents = true
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
 
@@ -31,7 +32,7 @@ final class FloatingPanel: NSPanel {
         var startFrame = targetFrame
         startFrame.origin.x = screen.visibleFrame.maxX
         setFrame(startFrame, display: false)
-        orderFront(nil)
+        makeKeyAndOrderFront(nil)
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
