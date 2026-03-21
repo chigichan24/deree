@@ -99,8 +99,8 @@ private final class LiveStorage: Sendable {
         let id = UUID()
         let (width, height) = try imageDimensions(from: source)
 
-        try writeFullImage(imageData, for: id)
         do {
+            try writeFullImage(imageData, for: id)
             try writeThumbnail(from: source, for: id)
         } catch {
             cleanupFiles(for: id)
