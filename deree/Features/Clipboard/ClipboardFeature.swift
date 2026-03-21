@@ -42,6 +42,9 @@ struct ClipboardFeature {
             case .startPolling:
                 state.isPolling = true
                 state.lastChangeCount = clipboardClient.changeCount()
+                // Initial load and polling run independently via .merge:
+                // if loadAll fails, polling still starts so new clipboard
+                // images are captured even when history can't be restored.
                 return .merge(
                     .run { send in
                         do {
