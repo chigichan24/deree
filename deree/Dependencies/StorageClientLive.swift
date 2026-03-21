@@ -166,17 +166,29 @@ private final class LiveStorage: Sendable {
     }
 
     private func evictExcessImages(from images: inout [ClipboardImage]) -> Set<UUID> {
-        var evictedIDs = Set<UUID>()
+        let evicted = extractExcessImages(from: &images)
+        return removeEvictedFiles(evicted)
+    }
+
+    private func extractExcessImages(from images: inout [ClipboardImage]) -> [ClipboardImage] {
+        var evicted: [ClipboardImage] = []
         while images.count > StorageConstants.maxImageCount {
-            let removed = images.removeLast()
-            do {
-                try removeFilesStrict(for: removed.id)
-            } catch {
-                Self.logger.warning("Failed to remove evicted files for \(removed.id): \(error)")
-            }
-            evictedIDs.insert(removed.id)
+            evicted.append(images.removeLast())
         }
-        return evictedIDs
+        return evicted
+    }
+
+    private func removeEvictedFiles(_ evicted: [ClipboardImage]) -> Set<UUID> {
+        var ids = Set<UUID>()
+        for image in evicted {
+            do {
+                try removeFilesStrict(for: image.id)
+            } catch {
+                Self.logger.warning("Failed to remove evicted files for \(image.id): \(error)")
+            }
+            ids.insert(image.id)
+        }
+        return ids
     }
 
     private func createImageSource(from imageData: Data) throws -> CGImageSource {
