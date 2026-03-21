@@ -14,6 +14,13 @@ struct ClipboardClient: Sendable {
 }
 
 extension ClipboardClient: DependencyKey {
+    private static func pngData(from image: NSImage) -> Data? {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData)
+        else { return nil }
+        return bitmap.representation(using: .png, properties: [:])
+    }
+
     static let liveValue = ClipboardClient(
         changeCount: {
             MainActor.assumeIsolated {
@@ -35,11 +42,9 @@ extension ClipboardClient: DependencyKey {
                 ) as? [URL],
                     let url = urls.first,
                     let image = NSImage(contentsOf: url),
-                    let tiffData = image.tiffRepresentation,
-                    let bitmap = NSBitmapImageRep(data: tiffData),
-                    let pngData = bitmap.representation(using: .png, properties: [:])
+                    let data = pngData(from: image)
                 {
-                    return pngData
+                    return data
                 }
 
                 // Fall back to direct image data (screenshots, copy from apps)
@@ -48,11 +53,9 @@ extension ClipboardClient: DependencyKey {
                     options: nil
                 ),
                     let image = objects.first as? NSImage,
-                    let tiffData = image.tiffRepresentation,
-                    let bitmap = NSBitmapImageRep(data: tiffData),
-                    let pngData = bitmap.representation(using: .png, properties: [:])
+                    let data = pngData(from: image)
                 {
-                    return pngData
+                    return data
                 }
 
                 return nil
