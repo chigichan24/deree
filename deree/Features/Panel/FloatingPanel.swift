@@ -47,7 +47,7 @@ final class FloatingPanel: NSPanel {
         }
     }
 
-    func slideOut(completion: @MainActor @Sendable @escaping () -> Void) {
+    func slideOut(completion: @MainActor @Sendable @escaping () -> Void = {}) {
         guard let screen = NSScreen.main else {
             orderOut(nil)
             completion()

@@ -27,7 +27,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func slideOut() {
-        floatingPanel?.slideOut {}
+        floatingPanel?.slideOut()
     }
 
     func tearDown() {
