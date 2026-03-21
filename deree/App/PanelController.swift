@@ -53,13 +53,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func setupObservers() {
-        // queue: .main guarantees Main Thread, enabling MainActor.assumeIsolated
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.repositionPanel()
             }
         }
@@ -69,7 +68,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.onDeactivate()
             }
         }
