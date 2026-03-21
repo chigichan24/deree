@@ -17,8 +17,12 @@ struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
         case id, createdAt, width, height
     }
 
+    private static func areDimensionsValid(width: Int, height: Int) -> Bool {
+        width > 0 && height > 0
+    }
+
     init(id: UUID, createdAt: Date, width: Int, height: Int) {
-        guard width > 0, height > 0 else {
+        guard Self.areDimensionsValid(width: width, height: height) else {
             fatalError("Image dimensions must be positive (got \(width)x\(height))")
         }
         self.id = id
@@ -33,7 +37,7 @@ struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         width = try container.decode(Int.self, forKey: .width)
         height = try container.decode(Int.self, forKey: .height)
-        guard width > 0, height > 0 else {
+        guard Self.areDimensionsValid(width: width, height: height) else {
             throw DecodingError.dataCorrupted(
                 .init(
                     codingPath: container.codingPath,
