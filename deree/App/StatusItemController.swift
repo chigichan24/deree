@@ -46,7 +46,8 @@ final class StatusItemController {
 
     private func showContextMenu() {
         let menu = NSMenu()
-        menu.addItem(withTitle: "Quit deree", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = menu.addItem(withTitle: "Quit deree", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
