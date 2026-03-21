@@ -7,13 +7,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var floatingPanel: FloatingPanel?
     private var screenObserver: (any NSObjectProtocol)?
     private var deactivateObserver: (any NSObjectProtocol)?
-    private let onPanelClose: () -> Void
-    private let onDeactivate: () -> Void
+    private let onPanelClose: @MainActor () -> Void
+    private let onDeactivate: @MainActor () -> Void
 
     init(
         contentView: some View,
-        onPanelClose: @escaping () -> Void,
-        onDeactivate: @escaping () -> Void
+        onPanelClose: @MainActor @escaping () -> Void,
+        onDeactivate: @MainActor @escaping () -> Void
     ) {
         self.onPanelClose = onPanelClose
         self.onDeactivate = onDeactivate

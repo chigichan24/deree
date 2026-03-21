@@ -3,10 +3,10 @@ import AppKit
 @MainActor
 final class StatusItemController {
     private var statusItem: NSStatusItem?
-    private let onLeftClick: () -> Void
-    private let onQuit: () -> Void
+    private let onLeftClick: @MainActor () -> Void
+    private let onQuit: @MainActor () -> Void
 
-    init(onLeftClick: @escaping () -> Void, onQuit: @escaping () -> Void) {
+    init(onLeftClick: @MainActor @escaping () -> Void, onQuit: @MainActor @escaping () -> Void) {
         self.onLeftClick = onLeftClick
         self.onQuit = onQuit
         setupStatusItem()

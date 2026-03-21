@@ -12,7 +12,6 @@ struct ClipboardFeatureTests {
             ClipboardImage(
                 id: UUID(0),
                 createdAt: Date(timeIntervalSince1970: 200),
-
                 width: 100,
                 height: 100
             ),
@@ -31,6 +30,9 @@ struct ClipboardFeatureTests {
 
         await store.send(.startPolling) {
             $0.isPolling = true
+        }
+
+        await store.receive(\.imageCopiedToPasteboard) {
             $0.lastChangeCount = 5
         }
 
@@ -91,7 +93,9 @@ struct ClipboardFeatureTests {
 
         store.exhaustivity = .off
 
-        await store.send(.timerTicked) {
+        await store.send(.timerTicked)
+
+        await store.receive(\.clipboardChanged) {
             $0.lastChangeCount = 6
         }
 
@@ -100,7 +104,7 @@ struct ClipboardFeatureTests {
         }
     }
 
-    @Test func timerTick_withChange_noImage_doesNothing() async {
+    @Test func timerTick_withChange_noImage_updatesChangeCount() async {
         let store = TestStore(
             initialState: ClipboardFeature.State(
                 isPolling: true,
@@ -113,7 +117,9 @@ struct ClipboardFeatureTests {
             $0.clipboardClient.readImage = { nil }
         }
 
-        await store.send(.timerTicked) {
+        await store.send(.timerTicked)
+
+        await store.receive(\.clipboardChanged) {
             $0.lastChangeCount = 6
         }
     }
@@ -125,7 +131,6 @@ struct ClipboardFeatureTests {
                 ClipboardImage(
                     id: UUID(i),
                     createdAt: Date(timeIntervalSince1970: Double(1000 - i)),
-
                     width: 100,
                     height: 100
                 )
@@ -135,7 +140,6 @@ struct ClipboardFeatureTests {
         let newImage = ClipboardImage(
             id: UUID(99),
             createdAt: Date(timeIntervalSince1970: 2000),
-
             width: 200,
             height: 150
         )
@@ -194,7 +198,6 @@ struct ClipboardFeatureTests {
             ClipboardImage(
                 id: UUID(0),
                 createdAt: Date(),
-
                 width: 100,
                 height: 100
             ),
@@ -224,7 +227,11 @@ struct ClipboardFeatureTests {
             $0.storageClient.save = { _ in throw StorageError.invalidImageData }
         }
 
-        await store.send(.timerTicked) {
+        store.exhaustivity = .off
+
+        await store.send(.timerTicked)
+
+        await store.receive(\.clipboardChanged) {
             $0.lastChangeCount = 6
         }
 

@@ -8,8 +8,8 @@ enum ClipboardError: Error, Equatable {
 
 @DependencyClient
 struct ClipboardClient: Sendable {
-    var changeCount: @Sendable () -> Int = { 0 }
-    var readImage: @Sendable () -> Data? = { nil }
+    var changeCount: @Sendable () async -> Int = { 0 }
+    var readImage: @Sendable () async -> Data? = { nil }
     var writeImage: @Sendable (Data) async throws -> Void
 }
 
@@ -23,12 +23,12 @@ extension ClipboardClient: DependencyKey {
 
     static let liveValue = ClipboardClient(
         changeCount: {
-            MainActor.assumeIsolated {
+            await MainActor.run {
                 NSPasteboard.general.changeCount
             }
         },
         readImage: {
-            MainActor.assumeIsolated {
+            await MainActor.run {
                 let pasteboard = NSPasteboard.general
 
                 // Try file URLs first (Cmd+C in Finder gives file URL + icon;
