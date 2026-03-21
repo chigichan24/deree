@@ -62,7 +62,7 @@ final class FloatingPanel: NSPanel {
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             self.animator().setFrame(offscreenFrame, display: true)
         }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.orderOut(nil)
                 completion()
             }

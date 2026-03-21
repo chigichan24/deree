@@ -18,13 +18,14 @@ struct ClipboardFeature {
         case startPolling
         case stopPolling
         case timerTicked
+        case clipboardChanged(changeCount: Int, imageData: Data)
         case imagesLoaded(IdentifiedArrayOf<ClipboardImage>)
         case thumbnailsLoaded([UUID: Data])
         case imageSaved(SaveResult)
         case thumbnailLoaded(UUID, Data)
         case imageDeleted(ClipboardImage.ID)
         case copyImageToPasteboard(ClipboardImage.ID)
-        case imageCopiedToPasteboard
+        case imageCopiedToPasteboard(changeCount: Int)
         case operationFailed(FeatureError)
     }
 
@@ -41,13 +42,14 @@ struct ClipboardFeature {
             switch action {
             case .startPolling:
                 state.isPolling = true
-                state.lastChangeCount = clipboardClient.changeCount()
                 // Initial load and polling run independently via .merge:
                 // if loadAll fails, polling still starts so new clipboard
                 // images are captured even when history can't be restored.
                 return .merge(
                     .run { send in
                         do {
+                            let initialCount = await clipboardClient.changeCount()
+                            await send(.imageCopiedToPasteboard(changeCount: initialCount))
                             let images = try await storageClient.loadAll()
                             await send(.imagesLoaded(images))
                             let thumbs = await loadThumbnails(for: images)
@@ -71,16 +73,23 @@ struct ClipboardFeature {
                 return .cancel(id: CancelID.polling)
 
             case .timerTicked:
-                let currentCount = clipboardClient.changeCount()
-                guard currentCount != state.lastChangeCount else {
-                    return .none
-                }
-                state.lastChangeCount = currentCount
+                let lastCount = state.lastChangeCount
+                return .run { send in
+                    let currentCount = await clipboardClient.changeCount()
+                    guard currentCount != lastCount else { return }
 
-                let imageData = clipboardClient.readImage()
-                guard let imageData else {
-                    return .none
+                    guard let imageData = await clipboardClient.readImage() else {
+                        // changeCount changed but no image (text copy, etc.)
+                        await send(.clipboardChanged(changeCount: currentCount, imageData: Data()))
+                        return
+                    }
+
+                    await send(.clipboardChanged(changeCount: currentCount, imageData: imageData))
                 }
+
+            case let .clipboardChanged(changeCount, imageData):
+                state.lastChangeCount = changeCount
+                guard !imageData.isEmpty else { return .none }
 
                 return .run { send in
                     do {
@@ -139,7 +148,8 @@ struct ClipboardFeature {
                     do {
                         let fullData = try await storageClient.loadFull(id)
                         try await clipboardClient.writeImage(fullData)
-                        await send(.imageCopiedToPasteboard)
+                        let newCount = await clipboardClient.changeCount()
+                        await send(.imageCopiedToPasteboard(changeCount: newCount))
                     } catch let error as StorageError {
                         await send(.operationFailed(.storageFailed(error)))
                     } catch let error as ClipboardError {
@@ -149,8 +159,8 @@ struct ClipboardFeature {
                     }
                 }
 
-            case .imageCopiedToPasteboard:
-                state.lastChangeCount = clipboardClient.changeCount()
+            case let .imageCopiedToPasteboard(changeCount):
+                state.lastChangeCount = changeCount
                 return .none
 
             case let .operationFailed(error):
