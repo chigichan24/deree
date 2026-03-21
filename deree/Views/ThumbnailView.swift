@@ -16,6 +16,7 @@ struct ThumbnailView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+                .allowsHitTesting(false)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -23,6 +24,7 @@ struct ThumbnailView: View {
                     isHovered ? Color.accentColor.opacity(0.6) : Color.clear,
                     lineWidth: 2
                 )
+                .allowsHitTesting(false)
         }
         .onHover { hovering in
             isHovered = hovering
