@@ -17,7 +17,9 @@ struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
     }
 
     init(id: UUID, createdAt: Date, width: Int, height: Int) {
-        precondition(width > 0 && height > 0, "Image dimensions must be positive")
+        guard width > 0, height > 0 else {
+            fatalError("Image dimensions must be positive (got \(width)x\(height))")
+        }
         self.id = id
         self.createdAt = createdAt
         self.width = width
