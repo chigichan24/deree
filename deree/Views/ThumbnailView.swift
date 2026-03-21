@@ -11,7 +11,7 @@ struct ThumbnailView: View {
             .overlay { thumbnailContent }
             .overlay(alignment: .bottomTrailing) { timestampOverlay }
             .frame(maxWidth: .infinity)
-            .frame(height: 160)
+            .aspectRatio(CGFloat(image.width) / CGFloat(image.height), contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
