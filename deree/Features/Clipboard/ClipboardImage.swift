@@ -11,6 +11,7 @@ struct ClipboardImage: Equatable, Identifiable, Codable, Sendable {
 
     var thumbnailFileName: String { Self.thumbFileName(for: id) }
     var fullFileName: String { Self.fullFileName(for: id) }
+    var aspectRatio: CGFloat { CGFloat(width) / CGFloat(height) }
 
     private enum CodingKeys: String, CodingKey {
         case id, createdAt, width, height
