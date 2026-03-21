@@ -23,18 +23,30 @@ A clipboard image history for the work AI leaves behind. Your AI agent can write
 ## Requirements
 
 - macOS 14.0 (Sonoma) or later
-- Xcode 16.0 or later
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- Xcode 26.0 or later (Swift 6)
+- [Mint](https://github.com/yonaskolb/Mint) (CLI tool manager)
 
 ## Install
 
 ```bash
-brew install xcodegen
+# Install Mint (manages XcodeGen and other CLI tools)
+brew install mint
+
+# Clone and enter the repo
 git clone https://github.com/chigichan24/deree.git && cd deree
-xcodegen generate
+
+# Install CLI dependencies (XcodeGen, pinned in Mintfile)
+mint bootstrap
+
+# Generate Xcode project from project.yml
+mint run xcodegen generate
+
+# Build a Release binary
 xcodebuild -project deree.xcodeproj -scheme deree -configuration Release \
   -destination 'platform=macOS' -skipMacroValidation \
   -derivedDataPath build
+
+# Copy to Applications and launch
 cp -r build/Build/Products/Release/deree.app /Applications/
 open /Applications/deree.app
 ```
@@ -44,16 +56,19 @@ To launch at login, add deree in System Settings → General → Login Items.
 ## Development
 
 ```bash
-xcodegen generate
+# Generate Xcode project (re-run after editing project.yml)
+mint run xcodegen generate
 
 # Build (debug)
-xcodebuild -project deree.xcodeproj -scheme deree -destination 'platform=macOS' -skipMacroValidation build
+xcodebuild -project deree.xcodeproj -scheme deree \
+  -destination 'platform=macOS' -skipMacroValidation build
 
 # Run tests
-xcodebuild -project deree.xcodeproj -scheme dereeTests -destination 'platform=macOS' -skipMacroValidation test
+xcodebuild -project deree.xcodeproj -scheme dereeTests \
+  -destination 'platform=macOS' -skipMacroValidation test
 ```
 
-Or open `deree.xcodeproj` in Xcode after running `xcodegen generate`.
+Or open `deree.xcodeproj` in Xcode after running `mint run xcodegen generate`.
 
 > **Note:** `-skipMacroValidation` is required because TCA uses Swift macros from SPM packages.
 
