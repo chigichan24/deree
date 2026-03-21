@@ -5,11 +5,9 @@ final class FloatingPanel: NSPanel {
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [
-                .nonactivatingPanel,
-                .titled,
-                .fullSizeContentView,
-            ],
+            // Borderless panel: no .titled so there is no title bar offset
+            // that would misalign SwiftUI hit-testing coordinates.
+            styleMask: [.nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -21,9 +19,7 @@ final class FloatingPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
 
-        titlebarAppearsTransparent = true
-        titleVisibility = .hidden
-
+        acceptsMouseMovedEvents = true
         isMovableByWindowBackground = false
         isReleasedWhenClosed = false
 
@@ -38,7 +34,10 @@ final class FloatingPanel: NSPanel {
         var startFrame = targetFrame
         startFrame.origin.x = screen.visibleFrame.maxX
         setFrame(startFrame, display: false)
-        orderFront(nil)
+        // .nonactivatingPanel prevents deactivating the frontmost app,
+        // while makeKey is required so SwiftUI's onHover (NSTrackingArea
+        // with activeInKeyWindow) and button clicks work in this panel.
+        makeKeyAndOrderFront(nil)
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
